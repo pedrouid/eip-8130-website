@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://eip8130.io/sitemap.xml
