@@ -1,0 +1,29 @@
+{
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "redirects": [
+    { "source": "/current-spec.html", "destination": "/current-spec", "permanent": true },
+    { "source": "/feedback-evolution.html", "destination": "/feedback-evolution", "permanent": true },
+    { "source": "/original-spec.html", "destination": "/original-spec", "permanent": true },
+    { "source": "/merged-changes.html", "destination": "/merged-changes", "permanent": true },
+    { "source": "/original-vs-latest.html", "destination": "/original-vs-latest", "permanent": true },
+
+    { "source": "/authenticator-model.html", "destination": "/authenticator-model", "permanent": true },
+    { "source": "/cross-chain-accounts.html", "destination": "/cross-chain-accounts", "permanent": true },
+    { "source": "/mempool-safety.html", "destination": "/mempool-safety", "permanent": true },
+    { "source": "/pq-scheme-agility.html", "destination": "/pq-scheme-agility", "permanent": true },
+    { "source": "/developer-tooling.html", "destination": "/developer-tooling", "permanent": true },
+    { "source": "/competing-standards.html", "destination": "/competing-standards", "permanent": true },
+
+    { "source": "/eip-8141.html", "destination": "/eip-8141", "permanent": true },
+    { "source": "/eip-8175.html", "destination": "/eip-8175", "permanent": true },
+    { "source": "/eip-8202.html", "destination": "/eip-8202", "permanent": true },
+    { "source": "/eip-8223.html", "destination": "/eip-8223", "permanent": true },
+    { "source": "/eip-8224.html", "destination": "/eip-8224", "permanent": true },
+    { "source": "/eip-xxxx.html", "destination": "/eip-xxxx", "permanent": true },
+
+    { "source": "/faq.html", "destination": "/faq", "permanent": true },
+    { "source": "/glossary.html", "destination": "/glossary", "permanent": true },
+    { "source": "/appendix.html", "destination": "/appendix", "permanent": true }
+  ]
+}

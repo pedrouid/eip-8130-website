@@ -1,0 +1,142 @@
+<template>
+  <footer class="custom-footer">
+    <div class="footer-container">
+      <div class="footer-col footer-title">
+        <h4>EIP-8130 Account Configuration</h4>
+      </div>
+      <div class="footer-col">
+        <h4>Spec</h4>
+        <ul>
+          <li><a href="/current-spec">Current Spec</a></li>
+          <li><a href="/feedback-evolution">Feedback Evolution</a></li>
+          <li><a href="/original-spec">Original Spec</a></li>
+          <li><a href="/merged-changes">Merged Changes</a></li>
+          <li><a href="/original-vs-latest">Original vs Latest</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Topics</h4>
+        <ul>
+          <li><a href="/authenticator-model">Authenticator Model</a></li>
+          <li><a href="/cross-chain-accounts">Cross-Chain Accounts</a></li>
+          <li><a href="/mempool-safety">Mempool Safety</a></li>
+          <li><a href="/pq-scheme-agility">PQ Scheme Agility</a></li>
+          <li><a href="/developer-tooling">Developer Tooling</a></li>
+          <li><a href="/competing-standards">Competing Standards</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Alternatives</h4>
+        <ul>
+          <li><a href="/eip-8141">EIP-8141: Frame Transaction</a></li>
+          <li><a href="/eip-8175">EIP-8175: Composable Transaction</a></li>
+          <li><a href="/eip-8202">EIP-8202: Scheme-Agile Transactions</a></li>
+          <li><a href="/eip-8223">EIP-8223: Contract Payer Transaction</a></li>
+          <li><a href="/eip-8224">EIP-8224: Counterfactual Transaction</a></li>
+          <li><a href="/eip-xxxx">EIP-XXXX: Tempo-like Transactions</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Resources</h4>
+        <ul>
+          <li>
+            <a
+              href="https://github.com/ethereum/EIPs/blob/master/EIPS/eip-8130.md"
+              target="_blank"
+              rel="noopener"
+              >EIP-8130 Spec</a
+            >
+          </li>
+          <li>
+            <a
+              href="https://github.com/ethereum/EIPs/pulls?q=is%3Apr+8130"
+              target="_blank"
+              rel="noopener"
+              >All Related PRs</a
+            >
+          </li>
+          <li>
+            <a
+              href="https://ethereum-magicians.org/t/eip-8130-account-abstraction-by-account-configurations/25952"
+              target="_blank"
+              rel="noopener"
+              >EthMagicians Discussion</a
+            >
+          </li>
+          <li>
+            <a
+              href="https://github.com/pedrouid/eip-8130-website"
+              target="_blank"
+              rel="noopener"
+              >GitHub Repository</a
+            >
+          </li>
+        </ul>
+      </div>
+    </div>
+  </footer>
+</template>
+
+<style scoped>
+.custom-footer {
+  border-top: 1px solid var(--vp-c-divider);
+  padding: 32px 32px;
+}
+
+.footer-container {
+  max-width: calc(var(--vp-layout-max-width) - 64px);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 32px;
+}
+
+.footer-col h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vp-c-text-1);
+  margin-bottom: 12px;
+}
+
+.footer-col ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.footer-col li {
+  margin-bottom: 8px;
+}
+
+.footer-col a {
+  font-size: 13px;
+  color: var(--vp-c-text-2);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.footer-col a:hover {
+  color: var(--vp-c-brand-1);
+}
+
+@media (max-width: 1024px) {
+  .footer-title {
+    display: none;
+  }
+
+  .footer-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .custom-footer {
+    padding: 32px 24px;
+  }
+
+  .footer-container {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+</style>
