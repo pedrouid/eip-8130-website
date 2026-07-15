@@ -2,6 +2,10 @@
 
 EIP-8130, "Account Abstraction by Account Configuration," is a Core, Standards Track proposal by Chris Hunter (@chunter-cb, Coinbase/Base), draft-created 2025-10-14, with 40 merged PRs against the spec file as of 2026-07-15. It requires only EIP-170 (max code size) and EIP-2718 (typed transactions) in its frontmatter, though it depends heavily on EIP-7702's delegation-indicator mechanism (`0xef0100`) in body text without listing 7702 in `requires`.
 
+::: warning Proposal status
+This page summarizes the canonical **Draft**. EIP-8130 is not finalized, scheduled for a hard fork, or active on Ethereum mainnet. Present-tense wording below describes the proposal's rules, not a deployed network feature. Open PRs are called out explicitly and are not treated as current spec text.
+:::
+
 The problem it solves in one sentence: authentication is separated from account logic, so a node can decide whether to accept a transaction by checking the *identity* of the authenticator contract a transaction declares against a small canonical allowlist, instead of executing arbitrary wallet bytecode to figure out whether the transaction is valid.
 
 Spec source: [github.com/ethereum/EIPs/blob/master/EIPS/eip-8130.md](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-8130.md). Discussion: [ethereum-magicians.org/t/eip-8130-account-abstraction-by-account-configurations/25952](https://ethereum-magicians.org/t/eip-8130-account-abstraction-by-account-configurations/25952).
@@ -74,7 +78,7 @@ interface IAuthenticator {
 }
 ```
 
-Authenticators are called via **STATICCALL**. An authenticator address must not itself be a delegated account (code starting with the `0xef0100` delegation indicator is rejected). Gas pricing for authenticator execution is a chain's choice: ordinary metered EVM execution, or a fixed standard gas cost per enshrined canonical authenticator provided it produces identical results.
+Authenticators are called via **STATICCALL**. This prevents state writes, but the authenticator can still execute EVM code, read state, and make further static calls. An authenticator address must not itself be a delegated account (code starting with the `0xef0100` delegation indicator is rejected). Gas pricing for authenticator execution is a chain's choice: ordinary metered EVM execution, or a fixed standard gas cost per enshrined canonical authenticator provided it produces identical results.
 
 This interface and its rename history: `IAuthVerifier` (original) → `IVerifier` (PR #11388, Mar 9) → `IAuthenticator` (PR #11785, Jun 9, "rename verifier to authenticator"). The spec frames the final name as disambiguating two separate steps: the authenticator *authenticates* an actor (resolves an `actorId`), while scope and policy then *authorize* what that actor may do.
 
@@ -95,7 +99,7 @@ Any contract implementing `IAuthenticator` can be permissionlessly deployed and 
 | passkey | WebAuthn / FIDO2 | Onchain contract | `keccak256(x \|\| y)` |
 | delegate | Signature delegation | `DELEGATE_AUTHENTICATOR` | `bytes32(bytes20(delegated_address))` |
 
-The canonical set and its contract addresses are maintained in a companion ERC (number not yet assigned), deployed at deterministic CREATE2 addresses across chains, and expected to grow (for example, post-quantum schemes) through the companion ERC process rather than a hard fork. Nodes must include every canonical authenticator in their allowlist and should not extend it with non-canonical ones. The original submission (PR #11186) shipped a five-entry set (K1, P256, WebAuthn P256, BLS, DELEGATE); BLS is not present in the current canonical set table.
+The canonical set and its contract addresses are intended to be maintained in a companion ERC (number not yet assigned), with contracts deployed at deterministic CREATE2 addresses across chains. The draft expects the set to grow, for example with post-quantum schemes, through that ERC process. It does **not** specify how a changed set is activated consistently across clients, so the stronger claim that canonical additions never require a network upgrade is not established by the current text. Nodes must include every canonical authenticator in their allowlist and should not extend it with non-canonical ones. The original submission (PR #11186) shipped a five-entry set (K1, P256, WebAuthn P256, BLS, DELEGATE); BLS is not present in the current canonical set table.
 
 ### Delegate authenticator
 
@@ -381,9 +385,10 @@ Block execution (post-mempool, at inclusion time) re-checks lock state for any c
 
 | Proposal | Relation | Description |
 |---|---|---|
+| [ERC-8168](https://github.com/ethereum/ERCs/pull/1555) | Application layer, open draft | Payer Web Service Capability: `payer_*` JSON-RPC methods layered on EIP-8130 and ERC-7677. The open draft still uses pre-#11918 `PAYER` terminology and needs reconciliation with `SELF_PAYER`/`SPONSOR_PAYER` |
 | [EIP-8141](/eip-8141) | Alternative | Frame Transaction: arbitrary EVM inside VERIFY frames for validation, targeting both general native AA and a post-quantum off-ramp via account code |
 | [EIP-8175](/eip-8175) | Alternative | Composable Transaction: flat, non-recursive `capabilities` list plus a programmable `fee_auth` prelude for sponsorship |
-| [EIP-8202](/eip-8202) | Alternative | Scheme-Agile (Schemed) Transaction: single flat execution payload plus typed `authorizations`/`extensions` lists, with Falcon-512 as a first-class protocol scheme |
+| [EIP-8202](/eip-8202) | Alternative | Scheme-Agile Transaction: one payload plus typed `authorizations`/`extensions`; current schemes are ordinary and Merkle-committed ephemeral secp256k1 |
 | [EIP-8223](/eip-8223) | Complementary | Contract Payer Transaction: static gas sponsorship gated by a canonical payer-registry predeploy at `0x13`, no EVM execution |
 | [EIP-8224](/eip-8224) | Complementary | Counterfactual Transaction: protocol-native shielded gas funding via fflonk ZK proofs against canonical fee-note contracts |
 | [EIP-XXXX](/eip-xxxx) | Alternative | Tempo-like Transactions (gakonst, pre-draft gist): a constrained, fixed set of wallet UX primitives with no new opcodes and no programmable validation |

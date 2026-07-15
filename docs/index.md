@@ -3,7 +3,7 @@ layout: home
 hero:
   name: EIP-8130
   text: Account Configuration
-  tagline: Native account abstraction for Ethereum without executing wallet code during validation. Declarative authenticators, portable cross-chain accounts, predictable mempool safety.
+  tagline: Research and implementation tracking for a draft native account-abstraction proposal. Canonical authenticators, portable account configuration, and bounded validation.
   actions:
     - theme: brand
       text: Read the Overview
@@ -13,18 +13,22 @@ hero:
       link: /eip-8141
 features:
   - title: Declarative Validation
-    details: Nodes check an authenticator's identity against a canonical allowlist, never execute wallet code
+    details: Nodes select known authenticators by address instead of running the sender account's code
   - title: Cross-Chain Accounts
-    details: Config changes replay deterministically across every chain via chain_id 0
+    details: One chain_id 0 signature can be relayed to each deployment; synchronization is not automatic
   - title: Predictable Mempool Safety
-    details: No tracing infrastructure needed for canonical authenticators with known gas bounds
+    details: Canonical authenticator identity narrows the code and state a node must validate
   - title: Scheme Agility
-    details: New signature schemes ship by extending the canonical authenticator set, not a hard fork
+    details: Contracts deploy freely; direct AA use requires coordinated canonical-set adoption
   - title: Account Lock
     details: Freeze actor configuration to unlock higher mempool rate limits for stable accounts
   - title: Gas Sponsorship
     details: payer and payer_auth fields cover third-party gas. No bundlers or relayers needed
 ---
+
+::: warning Draft, not a deployed Ethereum feature
+EIP-8130 is a **Draft** Core proposal. It is not finalized, scheduled for a hard fork, or active on Ethereum mainnet. This site describes the current draft and labels unmerged work or editorial analysis separately.
+:::
 
 ## What to read first?
 
@@ -48,7 +52,7 @@ interface IAuthenticator {
 }
 ```
 
-A node accepts a transaction into its mempool by checking the *identity* of the declared authenticator against a small canonical allowlist and calling it via `STATICCALL`, not by executing the account's own code to figure out whether the transaction is valid. `K1_AUTHENTICATOR` is the native secp256k1 case: the protocol runs `ecrecover` directly instead of a contract call, which is what lets any existing EOA send AA transactions immediately with zero prior registration.
+A node accepts a transaction into its mempool by checking the *identity* of the declared authenticator against a small canonical allowlist and calling it via `STATICCALL`, rather than executing the sender account's own code to discover its validation rules. `STATICCALL` prevents state writes, but it does not make authenticator code stateless or non-programmable. `K1_AUTHENTICATOR` is the native secp256k1 case: the protocol runs `ecrecover` directly instead of a contract call, which lets any existing EOA send AA transactions with no prior registration.
 
 Each actor carries a `scope` byte of grants rather than a single all-or-nothing permission:
 
@@ -79,8 +83,8 @@ AA_TX_TYPE || rlp([
 
 | `payer` | `payer_auth` | Who pays | Required grant |
 |---|---|---|---|
-| empty | empty | `sender` | `SELF_PAYER` on the sender's own resolved actor |
-| sender's own address | set | `sender` | `SELF_PAYER` on a dedicated gas key funding a sibling key |
-| a different address | set | the `payer` field | `SPONSOR_PAYER` on the payer's resolved actor |
+| empty | empty | `sender` | Admin or `SELF_PAYER` on the sender's resolved actor |
+| sender's own address | set | `sender` | Admin or `SELF_PAYER` on a dedicated gas key funding a sibling key |
+| a different address | set | the `payer` field | Admin or `SPONSOR_PAYER` on the payer's resolved actor |
 
 No bundler, no EntryPoint contract, no off-chain relayer. Validation, gas payment, and execution are all native protocol behavior. See [Current Spec](/current-spec) for the full mechanism, including nonces, Account Lock, and account creation and import.

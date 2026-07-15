@@ -1,8 +1,19 @@
 # EIP-8130: Account Configuration
 
-Comprehensive analysis of [EIP-8130](https://eips.ethereum.org/EIPS/eip-8130) (Account Abstraction by Account Configuration) - tracking its origin, evolution through community feedback, competing proposals, and open concerns.
+Source-driven analysis of [EIP-8130](https://eips.ethereum.org/EIPS/eip-8130) (Account Abstraction by Account Configuration), tracking its design, review history, alternatives, and unresolved questions.
 
-Last updated: July 15, 2026. Tracks EIP-8130 through PR #11918, with PR #11919 open.
+Last updated: July 15, 2026. Tracks the canonical spec through PR #11918, with EIP PRs #11578 and #11919 open. Also tracks the related ERC-8168 draft in ERC PR #1555.
+
+> [!IMPORTANT]
+> EIP-8130 is a Draft proposal. It is not finalized, scheduled for an Ethereum hard fork, or available on Ethereum mainnet. Unless a paragraph is explicitly labeled as analysis, protocol behavior described here summarizes the current draft rather than a deployed system.
+
+## Research Method
+
+Factual claims are checked against the canonical EIP file, PR diffs and review threads, the EthMagicians discussion, and the primary source for each competing proposal. The site distinguishes three kinds of statements:
+
+- **Current draft**: text merged into the canonical proposal.
+- **Open proposal**: unmerged PR text that may still change.
+- **Analysis**: an inference or comparison made by this site, not a claim from an EIP author.
 
 ## Documents
 
@@ -23,7 +34,7 @@ Last updated: July 15, 2026. Tracks EIP-8130 through PR #11918, with PR #11919 o
 | [Authenticator Model](./docs/authenticator-model.md) | Declarative validation via authenticator contracts, versus code-execution validation models |
 | [Cross-Chain Accounts](./docs/cross-chain-accounts.md) | How config changes replay deterministically across chains via `chain_id 0` |
 | [Mempool Safety](./docs/mempool-safety.md) | Why validation never executes wallet code, and what that means for statelessness and async execution |
-| [PQ Scheme Agility](./docs/pq-scheme-agility.md) | How new signature schemes join the canonical authenticator set without a protocol upgrade |
+| [PQ Scheme Agility](./docs/pq-scheme-agility.md) | What canonical-set growth would require, and what the draft leaves unresolved |
 | [Developer Tooling](./docs/developer-tooling.md) | Bear and bull cases for wallet/app developer adoption |
 | [Competing Standards](./docs/competing-standards.md) | EIP-8141, EIP-8175, EIP-8202, EIP-8223, EIP-8224, Tempo-like - design, tradeoffs, comparative analysis |
 

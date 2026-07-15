@@ -66,7 +66,11 @@
 
 ### Related
 
-No companion or adjacent EIP/ERC has been formally opened. The canonical authenticator set is designed to grow through a companion ERC that has not yet been numbered. The Celo CIP-64 migration compatibility discussion (EthMagicians posts #12-22, June 5 - July 8, 2026) is the closest adjacent-standard activity, and it already drove one concrete spec change: the `AA_TX_TYPE`/`AA_PAYER_TYPE` renumbering in #11903 to avoid a collision with the transaction type used for Celo's CIP-64 on the OP Stack.
+| Date | Proposal | Status | Relationship |
+|---|---|---|---|
+| 2026-02-20 | [ERC-8168 / ERC PR #1555](https://github.com/ethereum/ERCs/pull/1555) | Open | Application-layer `payer_*` RPC methods over `paymasterService`; not the canonical-authenticator-set companion ERC, and its current text still uses the superseded `PAYER` scope term |
+
+The canonical authenticator set's companion ERC still has no assigned number. Separately, the Celo CIP-64 migration discussion (EthMagicians posts #12-22, June 5 - July 8, 2026) drove the `AA_TX_TYPE`/`AA_PAYER_TYPE` renumbering in #11903 to avoid a collision with Celo's OP Stack transaction type.
 
 ### Closed (not merged)
 
@@ -97,15 +101,16 @@ No companion or adjacent EIP/ERC has been formally opened. The canonical authent
 
 ## External Resources
 
-No external resources beyond the canonical sources above. A search of ethresear.ch for EIP-8130-related discussion returned no results.
+- [Frame Transactions vs. SchemedTransactions for Post-Quantum Ethereum](https://ethereum-magicians.org/t/frame-transactions-vs-schemedtransactions-for-post-quantum-ethereum/28056)
+- [EIP-8141 Demo](https://demo.eip-8141.ethrex.xyz/)
 
 ---
 
 ## Competing Standards
 
 - [EIP-8141: Frame Transaction](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-8141.md) — [Magicians thread](https://ethereum-magicians.org/t/frame-transaction/27617)
-- [EIP-8175: Composable Transaction](https://github.com/ethereum/EIPs/pull/11355) — [Magicians thread](https://ethereum-magicians.org/t/eip-8175-composable-transaction/27850)
-- [EIP-8202: Scheme-Agile Transaction](https://github.com/ethereum/EIPs/pull/11438) — [Magicians thread](https://ethereum-magicians.org/t/eip-8202-schemed-transaction/28044)
+- [EIP-8175: Composable Transaction](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-8175.md) — [Magicians thread](https://ethereum-magicians.org/t/eip-8175-composable-transaction/27850)
+- [EIP-8202: Scheme-Agile Transaction](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-8202.md) — [Magicians thread](https://ethereum-magicians.org/t/eip-8202-schemed-transaction/28044)
 - [EIP-8223: Contract Payer Transaction](https://github.com/ethereum/EIPs/pull/11509) — [Magicians thread](https://ethereum-magicians.org/t/eip-8223-contract-payer-transactions/28202)
 - [EIP-8224: Counterfactual Transaction](https://github.com/ethereum/EIPs/pull/11518) — [Magicians thread](https://ethereum-magicians.org/t/eip-8224-counterfactual-transaction/28205)
 - [Tempo-like Transaction (gakonst)](https://gist.github.com/gakonst/00117aa2a1cd327f515bc08fb807102e)

@@ -1,10 +1,16 @@
 # EIP-XXXX: Tempo-like Transactions
 
-**Author**: Georgios Konstantopoulos ([@gakonst](https://github.com/gakonst), Paradigm/Reth)
-**Status / Category**: Pre-draft gist, no EIP number assigned, no PR opened against `ethereum/EIPs`
-**Created**: Not specified (no formal EIP submission; gist has no `created` frontmatter)
-**Requires**: EIP-1559, EIP-2718, EIP-2930, EIP-7702, EIP-2, EIP-2929
-**Latest spec**: [gist.github.com/gakonst/00117aa2a1cd327f515bc08fb807102e](https://gist.github.com/gakonst/00117aa2a1cd327f515bc08fb807102e)
+| | |
+|---|---|
+| **Author** | Georgios Konstantopoulos ([@gakonst](https://github.com/gakonst), Paradigm/Reth) |
+| **Status/category** | Pre-draft gist; no EIP number or PR |
+| **Created** | Not specified; the gist has no `created` frontmatter |
+| **Requires** | EIP-1559, EIP-2718, EIP-2930, EIP-7702, EIP-2, EIP-2929 |
+| **Source** | [Tempo-like transaction gist](https://gist.github.com/gakonst/00117aa2a1cd327f515bc08fb807102e) |
+
+::: info Research artifact
+This is a design gist, not a numbered proposal or an active transaction type.
+:::
 
 ---
 
@@ -69,15 +75,15 @@ Signature sizes are bounded (`MAX_WEBAUTHN_SIG_SIZE = 2,049` bytes) and verifica
 | Transaction type | `0x76` | `AA_TX_TYPE = 0x79` (plus `AA_PAYER_TYPE = 0x7A` as a signature-domain byte, not a separate envelope) |
 | Validation model | Fixed signature encodings checked inline against the envelope; no contract call | Authenticator contracts invoked via STATICCALL, checked against a canonical allowlist; native `K1_AUTHENTICATOR` sentinel for secp256k1 |
 | Account configuration | None; sender is an existing EOA or a new address derived from a passkey public key | Onchain Account Configuration Contract; actors registered per account via `actor_config`, existing EOAs and existing smart-contract wallets supported without new addresses |
-| Extending the signature set | Requires a hard fork (new encodings hardcoded into `sender_signature` parsing) | New authenticator contract deployment plus canonical-set update via companion ERC; no hard fork for account-side onboarding |
+| Extending the signature set | Would require changing and activating the protocol definition | A contract can be deployed freely, but direct AA authentication requires canonical-set adoption; activation is unspecified |
 | Permission scoping | None; a valid signature authorizes the entire call batch | Scope bitmask (`SENDER`, `POLICY`, `NONCE`, `SELF_PAYER`, `SPONSOR_PAYER`); `POLICY` gates a key to a single target contract |
 | Batching model | Flat `calls` list, single all-or-nothing atomicity level | Two-level Call Phases: phases commit independently in sequence, calls within a phase are atomic |
 | Nonces | 2D (`nonce_key`, `nonce`); `nonce_key == 0` is standard | 2D (`nonce_key`, `nonce_sequence`) plus a dedicated nonce-free mode (`NONCE_KEY_MAX`) with `replay_id` dedup via a fixed-capacity circular buffer |
 | Validity window | Native `valid_after` / `valid_before` window | Single transaction-level `expiry`, plus an independent actor-level `expiry` for key liveness; no `valid_after` equivalent |
 | Gas sponsorship | Optional `fee_payer_signature`, secp256k1 only, no native ERC-20 reimbursement | `payer` / `payer_auth` fields, any authenticator, gated by `SELF_PAYER`/`SPONSOR_PAYER` scope bits |
-| Session/access keys | Deferred to a companion EIP; only a Keychain wrapper stub defined | `POLICY` scope bit plus `policy_manager`/`policy_commitment`, usable today |
+| Session/access keys | Deferred to a companion EIP; only a Keychain wrapper stub defined | The EIP-8130 draft defines `POLICY` plus `policy_manager`/`policy_commitment` |
 | New EVM primitives | None (no opcodes, no precompiles) | No opcodes; adds a Nonce Manager precompile and a Transaction Context precompile |
-| PQ / signature-scheme story | Fixed set (secp256k1, P-256, WebAuthn); none quantum-safe; new schemes need a hard fork | No PQ scheme shipped in the base spec either, but the canonical authenticator set is explicitly designed to grow via companion ERC without a hard fork |
+| PQ / signature-scheme story | Fixed set (secp256k1, P-256, WebAuthn); none quantum-safe | No PQ scheme defined; a future authenticator would still need canonical-set adoption |
 | Mempool validation cost | Purely cryptographic; deterministic per signature encoding | One `actor_config` SLOAD plus an authenticator STATICCALL checked against a node allowlist |
 
 ---
@@ -98,7 +104,7 @@ The proposal exists only as a gist authored by Georgios Konstantopoulos (Paradig
 
 ## Weaknesses
 
-- No PQ story whatsoever. The signature set (secp256k1, P-256, WebAuthn) is fixed and none are quantum-safe; adding a new scheme requires a hard fork, unlike EIP-8130's authenticator-contract-plus-companion-ERC extension path.
+- No PQ story. The signature set is fixed and none of secp256k1, P-256, or WebAuthn is quantum-safe; extending it would require a protocol change, while EIP-8130 moves extension into canonical-set coordination.
 - No account-side extensibility. There is no way to register a custom authenticator, delegate authority to another account, or express a scoped/policy-gated key the way EIP-8130's `POLICY` bit and `policy_manager` allow; access keys are explicitly deferred to an unspecified companion EIP.
 - Gas sponsorship is narrower than EIP-8130's model: `fee_payer_signature` is secp256k1-only, and ERC-20 fee reimbursement is not natively defined, requiring sponsors to co-sign compensating calls out of band.
 - No formal standing. With no EIP number, no PR, and no discussion thread, it has not entered the review process that EIP-8130 and every other proposal in this comparison have gone through, making it hard to assess how the design would hold up against adversarial review or a real implementation.
