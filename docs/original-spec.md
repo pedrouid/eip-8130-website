@@ -6,7 +6,7 @@ This page describes EIP-8130 as it was first merged into `ethereum/EIPs`, before
 
 ## Provenance
 
-EIP-8130, "Account Abstraction by Account Configuration," is authored by Chris Hunter (`@chunter-cb`) of Coinbase/Base. The EIP frontmatter lists `created: 2025-10-14`, which marks when the EthMagicians discussion and concept were first floated, not when the file entered the `ethereum/EIPs` repository. Per EIP process convention, `created` records concept-inception date rather than commit date, and there is roughly a four-and-a-half month gap between that date and the file's first merge.
+EIP-8130, "Account Abstraction by Account Configuration," is authored by Chris Hunter (`@chunter-cb`) of Coinbase/Base. The EIP frontmatter lists `created: 2025-10-14`, which per EIP process convention records the concept-inception date rather than when the file entered the `ethereum/EIPs` repository. The public EthMagicians discussion thread opened about ten days later, on October 24, 2025. There is roughly a four-and-a-half month gap between the created date and the file's first merge.
 
 Two near-identical submission PRs were opened in late January 2026:
 
@@ -15,7 +15,7 @@ Two near-identical submission PRs were opened in late January 2026:
 
 PR #11186's merged diff (+722/-0 lines) is the true baseline for "the original spec." Everything below describes that baseline as merged on February 28, 2026.
 
-A companion proposal, "Token Gas Payments for EIP-8130" (PR #11194), was opened the following day to extend the `extensions` field with ERC-20 gas payment support. It was closed without merging in March 2026 and is not part of the original or current spec; see [Merged Changes](/merged-changes) for more on proposals that were explored and set aside.
+A companion proposal, "Token Gas Payments for EIP-8130" (PR #11194), was opened the following day, proposing an `extensions` field carrying ERC-20 gas payment support. It was closed without merging in March 2026, and neither the extensions field nor token gas payments are part of the original or current spec; see [Merged Changes](/merged-changes) for more on proposals that were explored and set aside.
 
 ---
 
@@ -61,7 +61,7 @@ Each of these went through two rename cycles (a first pass to a "generic authori
 
 Compared to the spec as it stands today (see [Current Spec](/current-spec) and [Original vs Latest](/original-vs-latest) for the full detail), the original merged submission (PR #11186) did not have:
 
-- **No scope or permission model of any kind.** Any authorized key had full authority over the account. There was no SENDER/PAYER/SIGNATURE/CONFIG bit distinction, let alone the current five-bit SENDER/POLICY/NONCE/SELF_PAYER/SPONSOR_PAYER grant model. The first scope model of any kind arrived in PR #11388 (March 9); it was substantially redesigned again in PR #11918 (July 13).
+- **No scope-bit permission model.** The only permission primitive was a `key_policy` bitfield (`revoked`, `requireSponsor`); a `requireSponsor` key could authenticate but not draw the account's ETH for gas. Beyond that, every authorized key had equal authority. There was no SENDER/PAYER/SIGNATURE/CONFIG bit distinction, let alone the current five-bit SENDER/POLICY/NONCE/SELF_PAYER/SPONSOR_PAYER grant model. The first scope-bit model arrived in PR #11388 (March 9); it was substantially redesigned again in PR #11918 (July 13).
 - **No Account Lock mechanism.** Nothing let an account freeze its own configuration against further changes. This arrived in the very next merged PR, #11367 (March 3), and was itself simplified later in PR #11918.
 - **No unified account-mutation schema.** Account creation (`account_initialization`) and key changes (`key_changes`) were two separate fields rather than a single typed `account_changes` array with create/config-change/delegation entry types. The unification happened in PR #11367.
 - **No ERC-1271 fallback authorization path.** The original submission had no way for an already-deployed contract account (one that hadn't yet registered explicit keys) to authorize a change via `isValidSignature`. This migration path for existing wallets was added in PR #11367.

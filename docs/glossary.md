@@ -16,7 +16,7 @@ A comprehensive index of jargon used across this site: EIP-8130 itself, the acco
 - **Operational Authority** — The predicate governing ERC-1271 signing, defined as `admin || (SENDER && !POLICY)`. Introduced in PR #11918 (Jul 13, 2026), replacing a standalone SIGNER scope bit; a POLICY-gated actor is never operational and must not sign raw hashes.
 - **STATICCALL** — The EVM call type used to invoke an authenticator's `authenticate()` function; it cannot write storage, emit events, or otherwise change chain state, keeping authentication read-only and auditable.
 - **Statelessness / Witness Cost** — Shorthand for the state a stateless client must prove to validate a transaction. EIP-8130's validation footprint is narrow (one `actor_config` slot, nonce state, payer balance), excluding policy-gate state from the pre-inclusion witness set; see [/mempool-safety](/mempool-safety) §5.
-- **VOPS (Validity-Only Partial Statelessness)** — A statelessness design under which a node validates transactions using only a bounded witness rather than full state. EIP-8223's static payer-registry model is noted as strictly VOPS-compatible, needing only the `0x13` predeploy's storage trie as additional witness data; the term originates on the sibling EIP-8141 research site.
+- **VOPS (Validity-Only Partial Statelessness)** — A statelessness design under which a node validates transactions using only a bounded witness rather than full state. EIP-8223's static payer-registry model is strictly VOPS-compatible, needing only the `0x13` predeploy's storage trie as additional witness data.
 
 ---
 
@@ -24,7 +24,7 @@ A comprehensive index of jargon used across this site: EIP-8130 itself, the acco
 
 - **ACCOUNT_CONFIG_ADDRESS** — The CREATE2-derived address of the Account Configuration Contract, the single point of actor authorization, account creation, and change sequencing for every EIP-8130 account.
 - **Account Configuration Contract** — The system contract at `ACCOUNT_CONFIG_ADDRESS` that stores each account's actors, processes `account_changes`, and enforces Account Lock. See [/current-spec](/current-spec).
-- **actor_config** — The per-actor storage slot on an account, holding `authenticator` (20 bytes), `scope` (1 byte), `expiry` (`uint48`), and a reserved discriminator byte. Actors are revoked by deleting this slot, except the self-actor.
+- **actor_config** — The per-actor storage slot on an account, holding `authenticator` (bytes 0-19), `scope` (byte 20), `expiry` (`uint48`, bytes 21-26), and reserved bytes 27-31. Actors are revoked by deleting this slot, except the self-actor.
 - **ActorChange (struct)** — `{changeType, actorId, data}`, an entry inside a signed config-change message; `changeType` is `0x01` (`authorizeActor`) or `0x02` (`revokeActor`).
 - **ActorConfig (struct)** — `{authenticator, scope, expiry}`, the typed shape of an `actor_config` slot's payload, used in signature typehashes (`ACTORCONFIG_TYPEHASH`).
 - **Actor Policies** — The `POLICY`-scope mechanism gating a restricted actor to calling a single designated `policy_manager` contract, enforced during call execution rather than mempool validation. Landed in PR #11766 (Jun 4, 2026), after an earlier unmergeable draft (PR #11648).
@@ -76,7 +76,7 @@ A comprehensive index of jargon used across this site: EIP-8130 itself, the acco
 - **account_changes** — The transaction field carrying typed entries mutating account state: create (`0x00`), config change (`0x01`), delegation (`0x02`). Unified from two separate fields (`account_initialization`, `key_changes`) in PR #11367 (Mar 3, 2026).
 - **call phase** — One atomic group of calls within `calls`; if any call in a phase reverts, that phase's state is discarded and remaining phases are skipped, but earlier committed phases persist.
 - **calls** — The transaction field carrying a two-level array of call phases (`[[call,...],[call,...]]`); calls within a phase are atomic, phases commit independently in sequence.
-- **metadata** — An opaque, signed transaction field for wallet attribution and annotation data (e.g. ERC-8021-style suffixes), resolving a month-long design debate between two rejected drafts (a top-level `opaque_input` field and a metadata-sink call convention). Shipped in PR #11805 (Jun 15, 2026).
+- **metadata** — An opaque, signed transaction field for wallet attribution and annotation data (e.g. ERC-8021-style suffixes), resolving a month-long design debate between two competing drafts: the still-open top-level `opaque_input` field (#11578) and the closed metadata-sink call convention (#11655). Shipped in PR #11805 (Jun 15, 2026).
 - **payer / payer_auth** — See Gas Sponsorship and Payer Model below.
 - **REPLAY_ID_TYPE** — The magic prefix (`0x7901`) domain-separating the `replay_id` hash used for nonce-free-mode deduplication.
 - **sender / sender_auth** — `sender` is the sending account address (empty for an EOA signature, in which case it is recovered via ecrecover); `sender_auth` is the raw ECDSA signature or `authenticator || data` blob authenticating it. `sender` was renamed from `from` in PR #11526 (May 11, 2026).
@@ -111,6 +111,7 @@ A comprehensive index of jargon used across this site: EIP-8130 itself, the acco
 - **Account Lock** — A per-account mechanism freezing all actor-config changes and delegations while set, letting nodes safely grant higher mempool rate limits since nonce consumption becomes the only remaining invalidation risk. Introduced in PR #11367 (Mar 3, 2026), lifecycle simplified in PR #11918 (Jul 13, 2026).
 - **applySignedLockChanges** — The dedicated, EVM-only, admin-authorized entry point for locking or unlocking an account, operating on the local (per-chain) change channel only.
 - **LOCK_CHANGE_TYPEHASH** — The EIP-712-style typehash for a signed lock/unlock message, binding `account`, `chainId`, `op`, `unlockDelay`, and `sequence`.
+- **DEFAULT_EOA_REVOKED (flag)** — Bit 0 of the packed account-state flags field; when set, disables the implicit secp256k1 self-actor (the default EOA). `createAccount` and `importAccount` set it by default, which the spec calls a quantum-safe default. Introduced in PR #11815 (Jun 18, 2026), replacing an earlier `REVOKED_AUTHENTICATOR` sentinel address.
 - **LOCKED (flag)** — Bit 1 of the packed account-state flags field; while set, all actor-config changes and delegations are rejected except unlock.
 - **UNLOCK_INITIATED (flag)** — Bit 2 of the packed account-state flags field, selecting whether `lock_union` holds a pending `unlock_delay` or a computed `unlocks_at` timestamp.
 - **unlock_delay / unlocks_at** — The two interpretations of the packed `lock_union` field: a pending notice period (`unlock_delay`, bounded to the `uint16` range, about 18.2 hours max) before `UNLOCK_INITIATED` is set, or the computed unlock timestamp (`unlocks_at`) after.
@@ -140,7 +141,7 @@ A comprehensive index of jargon used across this site: EIP-8130 itself, the acco
 - **getNonce** — The read-only function on the Nonce Manager precompile, `getNonce(address account, uint256 nonceKey) returns (uint64)`.
 - **INonceManager** — The interface for the Nonce Manager precompile, exposing `getNonce` to ordinary EVM execution.
 - **ITransactionContext** — The interface for the Transaction Context precompile, exposing `getTransactionSender()`, `getTransactionPayer()`, and `getTransactionSenderActorId()` during `calls` execution.
-- **MAX_ACCOUNT_CHANGES** — A protocol/node-configurable limit on the number of config-change entries permitted in one transaction's `account_changes` array, introduced alongside the unified `account_changes` schema in PR #11367 (Mar 3, 2026).
+- **MAX_ACCOUNT_CHANGES** — The named per-transaction cap on config-change entries introduced with the unified `account_changes` schema in PR #11367 (Mar 3, 2026). The current spec no longer names the constant, expressing it instead as a configurable per-transaction limit on config-change entries enforced as a mempool rule.
 - **Nonce Manager** — The precompile at `NONCE_MANAGER_ADDRESS` holding two-dimensional nonce state, read and incremented directly by the protocol during AA transaction processing.
 - **NONCE_MANAGER_ADDRESS** — The fixed address (`0x813000000000000000000000000000000000aa01`) of the Nonce Manager precompile.
 - **Transaction Context (precompile)** — The precompile at `TX_CONTEXT_ADDRESS` exposing the resolved sender, payer, and sender actorId to in-flight EVM execution; replaced an earlier EIP-1153-transient-storage-based design in PR #11388 (Mar 9, 2026).

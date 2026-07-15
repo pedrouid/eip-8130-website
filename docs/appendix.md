@@ -66,7 +66,7 @@
 
 ### Related
 
-No companion or adjacent EIP/ERC has been formally opened as of this sync. The canonical authenticator set is designed to grow through a companion ERC that has not yet been numbered. The Celo CIP-64 migration compatibility discussion (EthMagicians posts #12-22, June 5 - July 8, 2026) is the closest adjacent-standard activity, and it already drove one concrete spec change: the `AA_TX_TYPE`/`AA_PAYER_TYPE` renumbering in #11903 to avoid an OP Stack CIP-64 transaction-type collision.
+No companion or adjacent EIP/ERC has been formally opened. The canonical authenticator set is designed to grow through a companion ERC that has not yet been numbered. The Celo CIP-64 migration compatibility discussion (EthMagicians posts #12-22, June 5 - July 8, 2026) is the closest adjacent-standard activity, and it already drove one concrete spec change: the `AA_TX_TYPE`/`AA_PAYER_TYPE` renumbering in #11903 to avoid a collision with the transaction type used for Celo's CIP-64 on the OP Stack.
 
 ### Closed (not merged)
 
@@ -97,7 +97,7 @@ No companion or adjacent EIP/ERC has been formally opened as of this sync. The c
 
 ## External Resources
 
-No external resources beyond the canonical sources above were surfaced by this sync. A search of ethresear.ch for EIP-8130-related discussion returned zero results as of the research date.
+No external resources beyond the canonical sources above. A search of ethresear.ch for EIP-8130-related discussion returned no results.
 
 ---
 

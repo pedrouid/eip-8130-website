@@ -81,7 +81,7 @@ No. `payer_auth_cost` is charged to the payer on top of `gas_limit`, since the p
 "Keys" became "owners" (PR #11380, Mar 6), then "actors" (PR #11764, Jun 4); "verifiers" became "authenticators" (PR #11785, Jun 9). See [Original vs Latest](/original-vs-latest).
 
 **3.8 What is the `metadata` field for?**
-An opaque, signed transaction field restoring the tx-level annotation role legacy `input` played (e.g. ERC-8021 attribution), resolved in PR #11805 (Jun 15) after a month-long design debate between two closed drafts. See [Merged Changes](/merged-changes).
+An opaque, signed transaction field restoring the tx-level annotation role legacy `input` played (e.g. ERC-8021 attribution), resolved in PR #11805 (Jun 15) after a month-long design debate between a closed draft (#11655) and a still-open one (#11578). See [Merged Changes](/merged-changes).
 
 ---
 
@@ -116,12 +116,12 @@ Not yet in the merged spec. PR #11919 (opened Jul 13, still open) proposes addin
 Two primitives: a CREATE2 address that computes identically on every chain, and a `chain_id = 0` config-change channel that lets one signed update propagate to every deployment without a bridge. See [Cross-Chain Accounts](/cross-chain-accounts).
 
 **5.2 Does the multichain config-change channel expire?**
-No, by design. Community contributor pochenai flagged the lack of expiry (closed PR #11612), and chunter-cb rejected the fix: "Multi-chain changes are meant for full owners... give an instant expiration when applied" describes the local channel instead. See [Cross-Chain Accounts](/cross-chain-accounts).
+No, by design. Community contributor pochenai flagged the lack of expiry (closed PR #11612); chunter-cb rejected the fix as intentional, since multi-chain changes are meant for full owners while a per-chain local change "give[s] an instant expiration when applied." See [Cross-Chain Accounts](/cross-chain-accounts).
 
 **5.3 Does Account Lock apply across all chains at once?**
 No, `applySignedLockChanges` operates on the local channel only, so a `chain_id = 0` config update can succeed everywhere except a chain where the account happens to be separately locked. See [Cross-Chain Accounts](/cross-chain-accounts).
 
-**5.4 Do any of the other five proposals sourced for this site offer comparable cross-chain portability?**
+**5.4 Do any of the other alternatives covered on this site offer comparable cross-chain portability?**
 No; the sourced material for EIP-8141, EIP-8175, EIP-8202, EIP-8223, and EIP-8224 describes no comparable account-portability mechanism. See [Cross-Chain Accounts](/cross-chain-accounts).
 
 **5.5 What was the Celo CIP-64 migration discussion about?**
@@ -159,7 +159,7 @@ No. The canonical set is k1, p256, passkey, and delegate; there is no Falcon, Di
 **7.2 How would a PQ scheme get added?**
 By deploying a new `IAuthenticator` contract and getting it into the canonical set via the companion ERC process, no protocol upgrade needed for deployment, but coordinated node-allowlist adoption is still required for the fast path. See [PQ Scheme Agility](/pq-scheme-agility).
 
-**7.3 What is the "quantum-resistant default"?**
+**7.3 What is the "quantum-safe default"?**
 `createAccount`/`importAccount` now revoke the implicit secp256k1 owner by default (PR #11815, Jun 18), so a freshly created or imported account doesn't leave a live k1 key unless one is explicitly listed in `initial_actors`. See [Current Spec](/current-spec).
 
 **7.4 Does EIP-8130 have a block-level proof-aggregation mechanism for PQ signatures?**
@@ -204,13 +204,13 @@ EIP-8141, with six (`APPROVE`, `TXPARAM`, `FRAMEDATALOAD`, `FRAMEDATACOPY`, `FRA
 Draft, Core, Standards Track, with 40 merged PRs (#11186 through #11918, Feb 28 - Jul 13, 2026) and 2 open PRs (#11578, #11919) as of July 15, 2026. See [Merged Changes](/merged-changes).
 
 **9.2 Is the canonical authenticator set's companion ERC finalized?**
-No, its number is not yet assigned as of this sync; the coordination mechanism exists in the base spec's text before it exists as a deployed artifact. See [PQ Scheme Agility](/pq-scheme-agility).
+No, its number is not yet assigned; the coordination mechanism exists in the base spec's text before it exists as a deployed artifact. See [PQ Scheme Agility](/pq-scheme-agility).
 
 **9.3 Has any real chain integration surfaced adoption friction?**
 Yes. The Celo CIP-64 migration discussion forced a transaction-type renumbering (`0x7B`/`0x7C` to `0x79`/`0x7A`) after karlb flagged a collision with an existing OP Stack allocation. See [Feedback Evolution](/feedback-evolution).
 
 **9.4 Has EIP-8130 been added to a hard-fork "Considered for Inclusion" list?**
-Not per the sourced research; that milestone is documented for EIP-8141 (Hegotá CFI list, PR #11537), not for EIP-8130. See [Competing Standards](/competing-standards).
+No; that milestone is documented for EIP-8141 (Hegotá CFI list, PR #11537), not for EIP-8130. See [Competing Standards](/competing-standards).
 
 **9.5 What are the two currently open PRs?**
 #11578 (pochenai's `opaque_input` field, superseded in spirit by the shipped `metadata` field but not formally reconciled) and #11919 (chunter-cb's expiry-at-create/import proposal). See [Merged Changes](/merged-changes).

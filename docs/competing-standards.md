@@ -42,15 +42,15 @@ Authored by Giulio Rebuffo and Ben Adams, created Mar 22, 2026, merged to master
 
 ## 5. EIP-8223 — Contract Payer Transaction
 
-Authored by Ben Adams, created Apr 11, 2026 (PR #11509, opened, no review cycle yet as of this sync). Charges gas to `tx.to` via a canonical payer-registry predeploy at `address(0x13)`, gated by a single SLOAD plus a balance check, no EVM execution at all. Explicitly positioned as complementary: "the payer registry predeploy is infrastructure consumed by any future general solution, not deprecated by it." This composes cleanly with EIP-8130's own `SELF_PAYER`/`SPONSOR_PAYER` scope bits as an alternative static-sponsorship rail rather than a competing account model. See [/eip-8223](/eip-8223).
+Authored by Ben Adams, created Apr 11, 2026 (PR #11509, opened, no review cycle yet). Charges gas to `tx.to` via a canonical payer-registry predeploy at `address(0x13)`, gated by a single SLOAD plus a balance check, no EVM execution at all. Explicitly positioned as complementary: "the payer registry predeploy is infrastructure consumed by any future general solution, not deprecated by it." This composes cleanly with EIP-8130's own `SELF_PAYER`/`SPONSOR_PAYER` scope bits as an alternative static-sponsorship rail rather than a competing account model. See [/eip-8223](/eip-8223).
 
 ## 6. EIP-8224 — Counterfactual Transaction
 
-Also authored by Ben Adams, created Apr 12, 2026 (PR #11518, opened, no review cycle yet as of this sync). Solves the "bootstrap problem" (a fresh EOA with no ETH cannot pay gas privately) via an fflonk ZK proof (BN254) against canonical fee-note contracts, with no EVM execution during validation. Positioned as complementary to general-purpose formats including EIP-8141, EIP-8175, and EIP-8223; nothing in the current research indicates a direct integration with EIP-8130, but its one-shot bootstrap pattern (fund a smart account, then switch to cheap sponsored transactions) is architecture-agnostic and could equally seed an EIP-8130 account. See [/eip-8224](/eip-8224).
+Also authored by Ben Adams, created Apr 12, 2026 (PR #11518, opened, no review cycle yet). Solves the "bootstrap problem" (a fresh EOA with no ETH cannot pay gas privately) via an fflonk ZK proof (BN254) against canonical fee-note contracts, with no EVM execution during validation. Positioned as complementary to general-purpose formats including EIP-8141, EIP-8175, and EIP-8223; nothing in the current research indicates a direct integration with EIP-8130, but its one-shot bootstrap pattern (fund a smart account, then switch to cheap sponsored transactions) is architecture-agnostic and could equally seed an EIP-8130 account. See [/eip-8224](/eip-8224).
 
 ## 7. EIP-XXXX — Tempo-like Transactions (gakonst)
 
-A pre-draft gist by Georgios Konstantopoulos (Paradigm/Reth), with no EIP number, no PR to `ethereum/EIPs`, and no EthMagicians thread as of this sync. It bundles a fixed set of wallet UX primitives (atomic batching, validity windows, gas sponsorship via `fee_payer_signature`, 2D nonces, and passkey signatures for P-256 and WebAuthn), with explicitly "constrained scope over general framework" as its philosophy. Its signature set (secp256k1, P-256, WebAuthn) mirrors three of EIP-8130's four canonical authenticators, but as protocol-native, hardcoded logic rather than authenticator contracts extensible via a companion ERC. New schemes would require a hard fork either way, but EIP-8130 at least has a defined extension path. See [/eip-xxxx](/eip-xxxx).
+A pre-draft gist by Georgios Konstantopoulos (Paradigm/Reth), with no EIP number, no PR to `ethereum/EIPs`, and no EthMagicians thread. It bundles a fixed set of wallet UX primitives (atomic batching, validity windows, gas sponsorship via `fee_payer_signature`, 2D nonces, and passkey signatures for P-256 and WebAuthn), with explicitly "constrained scope over general framework" as its philosophy. Its signature set (secp256k1, P-256, WebAuthn) mirrors three of EIP-8130's four canonical authenticators, but as protocol-native, hardcoded logic rather than authenticator contracts extensible via a companion ERC. New schemes would require a hard fork either way, but EIP-8130 at least has a defined extension path. See [/eip-xxxx](/eip-xxxx).
 
 ---
 
@@ -58,7 +58,7 @@ A pre-draft gist by Georgios Konstantopoulos (Paradigm/Reth), with no EIP number
 
 | Proposal | PQ scheme shipped today | Path to add a new scheme |
 |---|---|---|
-| EIP-8130 | None. Canonical set is k1, P256, WebAuthn, delegate | Companion ERC (number TBD) registers new canonical authenticators; explicitly "expected to grow (e.g. post-quantum)" via that process. New accounts already default to revoking the implicit secp256k1 self-actor (`DEFAULT_EOA_REVOKED` set on `createAccount`/`importAccount`, PR #11815), described as a "quantum-resistant default" |
+| EIP-8130 | None. Canonical set is k1, P256, WebAuthn, delegate | Companion ERC (number TBD) registers new canonical authenticators; explicitly "expected to grow (e.g. post-quantum)" via that process. New accounts already default to revoking the implicit secp256k1 self-actor (`DEFAULT_EOA_REVOKED` set on `createAccount`/`importAccount`, PR #11815), described as a "quantum-safe default" |
 | EIP-8141 | None shipped natively, but `ARBITRARY (0x0)` scheme lets any account-code verifier (including PQ) authenticate today with no protocol change; dedicated outer `signatures` list built for future aggregation; EIP-8288 (open) adds a PQ+STARK aggregation frame mode | Account code plus `ARBITRARY` witness signatures, no hard fork needed for a new scheme; protocol-level aggregation needs a sibling EIP (EIP-8288) |
 | EIP-8175 | None merged. SECP256K1 and ED25519 defined; a Falcon-512 addition is an open PR (Giulio2002) | New scheme requires a hard fork; fixed set at the protocol level |
 | EIP-8202 | Falcon-512 (`scheme_id 0x02`), shipped in the initial merged spec, alongside P256 for passkeys | Register a new `scheme_id`; no envelope/hard-fork restructuring, though the verification logic itself is still a protocol change |
@@ -80,7 +80,7 @@ EIP-8130's own PQ story is architectural rather than cryptographic so far: nothi
 | EIP-8224 | Bounded fflonk proof verification plus a code-hash check and fixed storage reads, no EVM | Rated "Minimal" (bounded crypto and static reads, no EVM) |
 | EIP-XXXX | Purely cryptographic, deterministic verification costs, bounded signature sizes (`MAX_WEBAUTHN_SIG_SIZE` = 2,049 bytes) | Rated "Low" (deterministic crypto, bounded sig sizes) |
 
-The "Rated" characterizations for EIP-8141/8175/8202/8223/8224 come from that sibling proposal's own comparative table; EIP-8130's row above is a direct reading of its mempool validation algorithm rather than an externally sourced rating, since EIP-8130 was not itself scored in that source table.
+The "Rated" characterizations for EIP-8141/8175/8202/8223/8224 come from a cross-proposal reading of each spec; EIP-8130's row above is a direct reading of its mempool validation algorithm.
 
 ## 10. Adoption and Implementation Status
 

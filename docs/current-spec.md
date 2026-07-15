@@ -34,7 +34,7 @@ Every account has an implicit self-actor slot with two mutually exclusive forms 
 1. **Inline secp256k1 self**, held in the packed account-state slot (`default_eoa_scope`/`default_eoa_expiry` plus the `DEFAULT_EOA_REVOKED` flag), resolved in a single SLOAD. Authenticated via native ecrecover only. Moved inline in PR #11816 (Jun 18) specifically so the account's own key resolves without a second SLOAD.
 2. **Non-secp256k1 self authenticator**, held in the ordinary `actor_config(self)` slot. Registering one sets `DEFAULT_EOA_REVOKED`, disabling the inline k1 path.
 
-A fresh account's inline config is all-zero (`scope == 0x00`, `expiry == 0`), which is what lets any EOA send AA transactions with zero prior registration. `createAccount` and `importAccount` both set `DEFAULT_EOA_REVOKED` by default, described in PR #11815 (Jun 18, "fold default-EOA revocation into a state flag") as a "quantum-resistant default": a newly created or imported account does not leave a live secp256k1 owner unless one is explicitly listed in `initial_actors`. That same PR also replaced an earlier `REVOKED_AUTHENTICATOR` sentinel-address trick with the `DEFAULT_EOA_REVOKED` flag bit, and renamed `ECRECOVER_AUTHENTICATOR` to `K1_AUTHENTICATOR`.
+A fresh account's inline config is all-zero (`scope == 0x00`, `expiry == 0`), which is what lets any EOA send AA transactions with zero prior registration. `createAccount` and `importAccount` both set `DEFAULT_EOA_REVOKED` by default, which the spec calls a "quantum-safe default" (added by PR #11815, Jun 18, "fold default-EOA revocation into a state flag"): a newly created or imported account does not leave a live secp256k1 owner unless one is explicitly listed in `initial_actors`. That same PR also replaced an earlier `REVOKED_AUTHENTICATOR` sentinel-address trick with the `DEFAULT_EOA_REVOKED` flag bit, and renamed `ECRECOVER_AUTHENTICATOR` to `K1_AUTHENTICATOR`.
 
 ### Scope byte, bit by bit
 
@@ -166,7 +166,7 @@ A precompile at `NONCE_MANAGER_ADDRESS` (`0x813000000000000000000000000000000000
 | `1` to `NONCE_KEY_MAX - 1` | User-defined | Parallel, independently-ordered channels |
 | `NONCE_KEY_MAX` (`2^256 - 1`) | Nonce-free | No nonce state read or incremented |
 
-The packed single-field `nonce_key`/`nonce_sequence` encoding and the nonce-free sentinel both arrived in PR #11478 (Apr 2, "nonce and EOA delegation changes"), replacing an earlier plain sequential nonce.
+The 2D `nonce_key`/`nonce_sequence` scheme predates the current spec (it was present in the original submission); PR #11478 (Apr 2, "nonce and EOA delegation changes") added the nonce-free `NONCE_KEY_MAX` sentinel and briefly packed the two fields into one `uint256`, later un-packed back into the two separate RLP fields shown above with `nonce_key` widened to `uint256`.
 
 ### Nonce-free mode and `replay_id`
 
@@ -282,9 +282,9 @@ ACTOR_TYPEHASH = keccak256("Actor(bytes32 actorId,ActorConfig config,bytes polic
 ACTOR_INITIALIZATION_TYPEHASH = keccak256("ActorInitialization(bytes32 salt,uint256 chainId,Actor[] initialActors)Actor(bytes32 actorId,ActorConfig config,bytes policyData)ActorConfig(address authenticator,uint8 scope,uint48 expiry)")
 ```
 
-Implementations must hash `expiry = 0` for every actor at import time and must not accept an actor-supplied expiry. On success, `importAccount` sets `DEFAULT_EOA_REVOKED`, the same quantum-resistant default `createAccount` applies; an owner who wants to keep the implicit EOA key includes a self-actorId entry with `K1_AUTHENTICATOR` in `initialActors`.
+Implementations must hash `expiry = 0` for every actor at import time and must not accept an actor-supplied expiry. On success, `importAccount` sets `DEFAULT_EOA_REVOKED`, the same quantum-safe default `createAccount` applies; an owner who wants to keep the implicit EOA key includes a self-actorId entry with `K1_AUTHENTICATOR` in `initialActors`.
 
-A currently open PR, **#11919** (opened Jul 13 by chunter-cb, same day PR #11918 merged), proposes adding an optional `uint48 expiry` to each initial actor at both `createAccount` and `importAccount` time, committed into the per-actor derivation preimage so a front-runner cannot alter it. As of this sync, expiry remains inexpressible at create or import time in the merged spec.
+A currently open PR, **#11919** (opened Jul 13 by chunter-cb, same day PR #11918 merged), proposes adding an optional `uint48 expiry` to each initial actor at both `createAccount` and `importAccount` time, committed into the per-actor derivation preimage so a front-runner cannot alter it. In the merged spec, expiry remains inexpressible at create or import time.
 
 ---
 
@@ -310,7 +310,7 @@ keccak256(AA_TX_TYPE || rlp([chain_id, sender, nonce_key, nonce_sequence, expiry
 keccak256(AA_PAYER_TYPE || rlp([... same fields ...])) // payer hash
 ```
 
-In the payer hash, the EOA path's `sender` field must be substituted with the resolved (recovered) address rather than encoded empty, preventing two different EOAs producing otherwise-identical bodies from reusing one payer signature. `payer` is included in the payer hash too, binding the payer's signature to the specific account being charged; without it, a payer authorization could be redirected to a different account via the delegate authenticator (the bug fixed in PR #11808). This cross-sender payer replay issue was first flagged and closed by community PR #11591 (May 4).
+In the payer hash, the EOA path's `sender` field must be substituted with the resolved (recovered) address rather than encoded empty, preventing two different EOAs producing otherwise-identical bodies from reusing one payer signature. `payer` is included in the payer hash too, binding the payer's signature to the specific account being charged; without it, a payer authorization could be redirected to a different account via the delegate authenticator (the bug fixed in PR #11808). This cross-sender payer replay issue was first flagged and fixed by community PR #11591 (merged May 4).
 
 ### Gas metering isolation
 

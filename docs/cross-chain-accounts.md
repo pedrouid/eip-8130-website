@@ -4,7 +4,7 @@
 
 ## TL;DR
 
-EIP-8130 gives every account two portability primitives that most account-abstraction designs leave to wallet implementations: a CREATE2 address that computes identically on every chain (same account, no per-chain redeployment or new address), and a `chain_id`-gated config-change channel (`chain_id = 0` means "valid on any chain") that lets a single signed owner update, such as a key rotation, propagate to every deployment of the account without a bridge or any cross-chain messaging. Both primitives trace back to the account's original submission, PR [#11186](https://github.com/ethereum/EIPs/pull/11186) (merged February 28, 2026), which already separated a portable, cross-chain `key_changes` array from local `account_initialization` before either concept had its current name. None of the five other proposals sourced for this site (EIP-8141, EIP-8175, EIP-8202, EIP-8223, EIP-8224) describe a comparable mechanism in the material reviewed.
+EIP-8130 gives every account two portability primitives that most account-abstraction designs leave to wallet implementations: a CREATE2 address that computes identically on every chain (same account, no per-chain redeployment or new address), and a `chain_id`-gated config-change channel (`chain_id = 0` means "valid on any chain") that lets a single signed owner update, such as a key rotation, propagate to every deployment of the account without a bridge or any cross-chain messaging. Both primitives trace back to the account's original submission, PR [#11186](https://github.com/ethereum/EIPs/pull/11186) (merged February 28, 2026), which already separated a portable, cross-chain `key_changes` array from local `account_initialization` before either concept had its current name. None of the other alternatives covered on this site (EIP-8141, EIP-8175, EIP-8202, EIP-8223, EIP-8224, and the Tempo-like gist) describe a comparable mechanism.
 
 "Portable" here means *replayable*, not *automatically synchronized*: nothing pushes a signed update to every chain for you, Account Lock is explicitly local-only and can silently block propagation on one chain while it succeeds everywhere else, and a real design debate (closed PR [#11612](https://github.com/ethereum/EIPs/pull/11612)) confirms that multichain owner changes deliberately carry no expiry, meaning a stale signed update stays validly replayable indefinitely, including on chains that don't exist yet at signing time.
 
@@ -83,14 +83,14 @@ A related but distinct discussion on the EthMagicians thread is worth noting for
 
 | Proposal | Cross-chain account portability |
 |---|---|
-| EIP-8141 | Frame Transaction — Frame modes, `APPROVE`, and the default-code EOA are all chain-local concepts; no config-propagation or address-portability mechanism appears in the sourced material |
+| EIP-8141 | Frame Transaction — Frame modes, `APPROVE`, and the default-code EOA are all chain-local concepts; no config-propagation or address-portability mechanism appears in its spec |
 | EIP-8175 | Composable Transaction — Ed25519 EOAs derive new addresses under its own scheme, but nothing propagates an account's signer configuration across chains |
 | EIP-8202 | Scheme-Agile Transactions — scheme-agility applies to sender authentication at the transaction layer, not to account-configuration continuity across chains |
 | EIP-8223 | Contract Payer Transaction — a single-chain payer-registry predeploy; not an account-portability proposal at all |
 | EIP-8224 | Counterfactual Transaction — a ZK shielded-funding mechanism for gas privacy; not an account-portability proposal |
 | EIP-XXXX (Tempo-like) | Fixed UX primitives (batching, validity windows, 2D nonces, passkeys); no cross-chain propagation feature is documented |
 
-This is an absence, not a rebuttal: EIP-8130's own spec text draws zero explicit comparison to any of these six proposals (a full-text search of the spec turns up no mention of "8141" or the others), so this table reflects what the sourced material for each proposal does and does not describe, not a claim made by any of the proposals about each other. Among the six sourced for this site, EIP-8130 is the only one whose base spec defines a mechanism for propagating an account's owner/actor configuration across chains without a bridge.
+This is an absence, not a rebuttal: EIP-8130's own spec text draws zero explicit comparison to any of these six proposals (a full-text search of the spec turns up no mention of "8141" or the others), so this table reflects what each proposal's own spec does and does not describe, not a claim made by any of the proposals about each other. Among these six proposals, EIP-8130 is the only one whose base spec defines a mechanism for propagating an account's owner/actor configuration across chains without a bridge.
 
 ## 6. Limits and Risks
 
@@ -104,7 +104,7 @@ This is an absence, not a rebuttal: EIP-8130's own spec text draws zero explicit
 
 ## Summary
 
-EIP-8130 treats cross-chain account portability as a first-class design goal rather than a wallet-layer convenience, and has done so since its original PR #11186: deterministic CREATE2 addressing gives every account the same address everywhere it might ever deploy, and the `chain_id = 0` config-change channel gives an owner a single signature that can be validly replayed on every existing (and, per the deliberate no-expiry design confirmed in PR #11612, every future) deployment of the account. That places it apart from the five other proposals sourced for this site, none of which specify a comparable mechanism. The caveats are real and specific rather than hypothetical: Account Lock's local-only scope, the deliberate absence of any expiry on multichain changes, and the total absence of a push or bridge mechanism all mean that "portable" describes what a signed message is *permitted* to do across chains, not a guarantee that it actually gets done, consistently, everywhere, in practice.
+EIP-8130 treats cross-chain account portability as a first-class design goal rather than a wallet-layer convenience, and has done so since its original PR #11186: deterministic CREATE2 addressing gives every account the same address everywhere it might ever deploy, and the `chain_id = 0` config-change channel gives an owner a single signature that can be validly replayed on every existing (and, per the deliberate no-expiry design confirmed in PR #11612, every future) deployment of the account. That places it apart from the other alternatives covered on this site, none of which specify a comparable mechanism. The caveats are real and specific rather than hypothetical: Account Lock's local-only scope, the deliberate absence of any expiry on multichain changes, and the total absence of a push or bridge mechanism all mean that "portable" describes what a signed message is *permitted* to do across chains, not a guarantee that it actually gets done, consistently, everywhere, in practice.
 
 ---
 
