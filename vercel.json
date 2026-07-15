@@ -1,4 +1,5 @@
 {
+  "framework": "vitepress",
   "cleanUrls": true,
   "trailingSlash": false,
   "redirects": [
