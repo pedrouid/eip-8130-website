@@ -40,7 +40,7 @@ This site is the mirror image of a sibling repo, `eip-8141-website`, which track
 │       └── theme/
 │           ├── index.ts               # Theme entry, imports custom.css
 │           ├── Layout.vue              # Wraps default layout, adds Footer
-│           ├── Footer.vue             # 5-column footer (site title, Spec, Topics, Alternatives, Resources)
+│           ├── Footer.vue             # 4-column footer (site title, Spec, Topics, Resources)
 │           └── custom.css             # Red brand palette + global table styles
 ```
 
@@ -62,7 +62,7 @@ This site is the mirror image of a sibling repo, `eip-8141-website`, which track
 - `appendix.md` is always **last** in the Resources group
 - The FAQ (`faq.md`) uses indexed questions: sections are numbered, questions are `section.question` (e.g., 1.1, 2.3, 8.5)
 - When adding a new document, decide which category it belongs to, then create `docs/<slug>.md` and update: `config.ts` (nav + sidebar), `Footer.vue`, and `README.md` in the matching category
-- **Alternatives never appear in the top nav header.** The header is reserved for Home, Spec, Topics, FAQ. Alternatives live in the sidebar (as a fourth group) and in the footer (as a column), but not in the nav. Reason: the top nav is a reader's primary path through the site, and leading with Alternatives (including EIP-8141) would foreground competing proposals before EIP-8130 itself. When adding or renaming an alternative proposal page, update `config.ts` sidebar only, do **not** add it to `nav`, and update `Footer.vue` under the Alternatives column.
+- **Alternatives never appear in the top nav header, and no longer have a footer column.** The header is reserved for Home, Spec, Topics, FAQ. Alternatives live in the sidebar only (as a fourth group). Reason: the top nav is a reader's primary path through the site, and leading with Alternatives (including EIP-8141) would foreground competing proposals before EIP-8130 itself; the footer was likewise trimmed to keep the same emphasis. When adding or renaming an alternative proposal page, update `config.ts` sidebar only, do **not** add it to `nav` or `Footer.vue`.
 
 ### URL stability and Vercel redirects
 
@@ -75,7 +75,7 @@ This site is the mirror image of a sibling repo, `eip-8141-website`, which track
 ### VitePress (docs/.vitepress/)
 
 - **config.ts**: Defines nav header and sidebar. Nav has: Home, Spec (dropdown), Topics (dropdown), FAQ. **Alternatives is intentionally not in the nav** (see the Alternatives-never-in-nav rule above). Sidebar has four groups (Spec, Topics, Alternatives, Resources) with Appendix last in Resources. Keep these in sync when adding/removing docs.
-- **Footer.vue**: 5-column grid (site title, Spec, Topics, Alternatives, Resources with external links). Does NOT include FAQ or Appendix as standalone footer links beyond the Resources column.
+- **Footer.vue**: 4-column grid (site title, Spec, Topics, Resources with external links). **No Alternatives column** — Alternatives pages are sidebar-only. Does NOT include FAQ or Appendix as standalone footer links beyond the Resources column.
 - **Layout.vue**: Wraps VitePress default layout, injects Footer via `#layout-bottom` slot.
 - **custom.css**: Defines the red brand palette (`--vp-c-brand-1/2/3`, `--vp-c-brand-soft`, button variables, hero gradient) for both light and dark mode, plus the global `white-space: nowrap` rule on first-column table cells. Do not remove either block. **This is the one deliberate visual difference from the sibling EIP-8141 site**, which uses the VitePress default purple; keep this site red.
 - **theme/index.ts**: Imports DefaultTheme, Layout, and custom.css. Keep imports here when adding new CSS.
@@ -338,7 +338,7 @@ Attribution rules vary by document, set deliberately:
 ### Adding a new competing standard
 
 1. Create a dedicated per-EIP page at `docs/eip-<N>.md` (or `docs/eip-xxxx.md` for pre-draft/gist proposals without an EIP number). Open with a metadata block, then the three-move pattern: **At a Glance** (what it is, problem it solves, why an EIP-8130 reader should care), then Overview, Core Design, Mempool Strategy, Key Differences from EIP-8130, Activity, Strengths, Weaknesses. Close with a pointer back to `competing-standards.md`.
-2. Update `config.ts` sidebar under the Alternatives group and add the page to `Footer.vue` under the Alternatives column. Do **not** add Alternatives entries to `config.ts` nav.
+2. Update `config.ts` sidebar under the Alternatives group. Do **not** add Alternatives entries to `config.ts` nav or `Footer.vue`.
 3. Update the comparative analysis in `competing-standards.md` (spectrum framing, PQ table, Mempool table, Adoption table) to include the new proposal. Do **not** paste the full per-EIP content into `competing-standards.md`; that doc is the comparative hub, the per-EIP page is the canonical source.
 4. Add a link in `appendix.md` under `## Competing Standards` following the link-formatting rule in §2d.
 5. Add the proposal's author to `## Key Contributors` in `appendix.md` if they are not already listed.
