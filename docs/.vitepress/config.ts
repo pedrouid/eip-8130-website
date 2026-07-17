@@ -124,6 +124,7 @@ export default defineConfig({
         ],
       },
       { text: "FAQ", link: "/faq" },
+      { text: "Demo", link: "https://vibes.base.org/" },
     ],
     sidebar: [
       {

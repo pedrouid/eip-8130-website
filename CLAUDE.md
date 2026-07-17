@@ -83,7 +83,7 @@ This site is the mirror image of a sibling repo, `eip-8141-website`, which track
 ### Landing Page (docs/index.md)
 
 - Uses VitePress `layout: home` with hero, actions, and features in YAML frontmatter
-- Hero buttons: "Read the Overview" (brand, links `/current-spec`), second button (alt) links somewhere that reinforces the site's reverse-comparison angle (currently `/eip-8141`, EIP-8130's most direct competitor) - there is no live public demo to link, unlike the sibling site
+- Hero buttons: "Read the Overview" (brand, links `/current-spec`), "Try the Demo" (alt, links the live demo at `https://vibes.base.org/`), and "Compare to EIP-8141" (alt, links `/eip-8141`, EIP-8130's most direct competitor, reinforcing the site's reverse-comparison angle). The demo is also linked in the header nav ("Demo") and the footer Resources column ("Live Demo"), mirroring the sibling EIP-8141 site
 - Below frontmatter: markdown sections routing readers by intent, then a mechanism walkthrough (Account Configuration Contract, authenticator interface, transaction format, gas sponsorship)
 - Feature card `details` strings in the YAML frontmatter must be 100 characters or fewer to keep the grid visually balanced
 

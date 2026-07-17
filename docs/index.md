@@ -9,6 +9,9 @@ hero:
       text: Read the Overview
       link: /current-spec
     - theme: alt
+      text: Try the Demo
+      link: https://vibes.base.org/
+    - theme: alt
       text: Compare to EIP-8141
       link: /eip-8141
 features:

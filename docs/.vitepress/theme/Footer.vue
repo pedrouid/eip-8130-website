@@ -54,6 +54,14 @@
           </li>
           <li>
             <a
+              href="https://vibes.base.org/"
+              target="_blank"
+              rel="noopener"
+              >Live Demo</a
+            >
+          </li>
+          <li>
+            <a
               href="https://github.com/pedrouid/eip-8130-website"
               target="_blank"
               rel="noopener"
