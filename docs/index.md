@@ -11,9 +11,6 @@ hero:
     - theme: alt
       text: Try the Demo
       link: https://vibes.base.org/
-    - theme: alt
-      text: Compare to EIP-8141
-      link: /eip-8141
 features:
   - title: Declarative Validation
     details: Nodes select known authenticators by address instead of running the sender account's code
