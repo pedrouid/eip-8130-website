@@ -26,10 +26,6 @@ features:
     details: payer and payer_auth fields cover third-party gas. No bundlers or relayers needed
 ---
 
-::: warning Draft, not a deployed Ethereum feature
-EIP-8130 is a **Draft** Core proposal. It is not finalized, scheduled for a hard fork, or active on Ethereum mainnet. This site describes the current draft and labels unmerged work or editorial analysis separately.
-:::
-
 ## What to read first?
 
 Pick the route that matches why you're here.
