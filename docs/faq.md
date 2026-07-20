@@ -19,7 +19,7 @@ It lets a node decide whether to accept a transaction by checking the identity o
 `requires: 170, 2718` as of the current spec; the original submission required `1153, 2718`, and `7702` was briefly required (PR #11367) then dropped (PR #11492). See [Original vs Latest](/original-vs-latest).
 
 **1.5 How mature is the spec?**
-40 merged PRs against the spec file as of July 15, 2026, but it remains a Draft and has not been scheduled for activation. See [Merged Changes](/merged-changes).
+40 merged PRs against the spec file as of July 20, 2026, but it remains a Draft with no Ethereum L1 activation scheduled. Base separately announced Cobalt activation for September 2026. See [Merged Changes](/merged-changes).
 
 **1.6 Does EIP-8130 replace ERC-4337?**
 No. The spec frames coexistence, not replacement: an already-deployed ERC-4337 account can register actors via `importAccount()` without redeploying. See [Current Spec](/current-spec).
@@ -81,7 +81,10 @@ No. `payer_auth_cost` is charged to the payer on top of `gas_limit`, since the p
 "Keys" became "owners" (PR #11380, Mar 6), then "actors" (PR #11764, Jun 4); "verifiers" became "authenticators" (PR #11785, Jun 9). See [Original vs Latest](/original-vs-latest).
 
 **3.8 What is the `metadata` field for?**
-An opaque, signed transaction field restoring the tx-level annotation role legacy `input` played (e.g. ERC-8021 attribution), resolved in PR #11805 (Jun 15) after a month-long design debate between a closed draft (#11655) and a still-open one (#11578). See [Merged Changes](/merged-changes).
+An opaque, signed transaction field restoring the tx-level annotation role legacy `input` played (e.g. attribution). The core EIP does not interpret it; open ERC-8340 proposes a deterministic CBOR format. See [Current Spec](/current-spec).
+
+**3.9 Is ERC-8340 part of EIP-8130 consensus?**
+No. [Open ERC PR #1883](https://github.com/ethereum/ERCs/pull/1883) proposes an application-layer encoding for attribution, memos, scope, and offchain commitments; the protocol still treats `metadata` as opaque bytes.
 
 ---
 
@@ -154,7 +157,7 @@ EIP-8130 fixes authenticator identity and interface, while EIP-8141 fixes a vali
 ## 7. Post-Quantum and Scheme Agility
 
 **7.1 Does EIP-8130 ship a post-quantum signature scheme today?**
-No. The canonical set is k1, p256, passkey, and delegate; there is no Falcon, Dilithium, SPHINCS+, or other PQ scheme as of the July 15, 2026 research snapshot. See [PQ Scheme Agility](/pq-scheme-agility).
+No. The canonical set is k1, p256, passkey, and delegate; there is no Falcon, Dilithium, SPHINCS+, or other PQ scheme as of the July 20, 2026 research snapshot. See [PQ Scheme Agility](/pq-scheme-agility).
 
 **7.2 How would a PQ scheme get added?**
 Its contract can be deployed without a protocol change, but direct AA-transaction use requires canonical-set adoption; the draft leaves that activation and client-coordination process unspecified. See [PQ Scheme Agility](/pq-scheme-agility).
@@ -201,16 +204,16 @@ EIP-8141, with six (`APPROVE`, `TXPARAM`, `FRAMEDATALOAD`, `FRAMEDATACOPY`, `FRA
 ## 9. Adoption and Implementation Status
 
 **9.1 What is EIP-8130's current status?**
-Draft, Core, Standards Track, with 40 merged PRs (#11186 through #11918, Feb 28 - Jul 13, 2026) and 2 open PRs (#11578, #11919) as of July 15, 2026. See [Merged Changes](/merged-changes).
+Draft, Core, Standards Track, with 40 merged PRs (#11186 through #11918, Feb 28 - Jul 13, 2026) and 2 open PRs (#11578, #11919) as of July 20, 2026. See [Merged Changes](/merged-changes).
 
 **9.2 Is the canonical authenticator set's companion ERC finalized?**
-No. The EIP still says its number is TBD. The open ERC-8168 payer-service draft is related application-layer work, not that canonical-set companion. See [PQ Scheme Agility](/pq-scheme-agility).
+No. The EIP still says its number is TBD. The open ERC-8168 payer-service and ERC-8340 metadata drafts are related application-layer work, not that canonical-set companion. See [PQ Scheme Agility](/pq-scheme-agility).
 
 **9.3 Has any real chain integration surfaced adoption friction?**
 Yes. The Celo CIP-64 migration discussion forced a transaction-type renumbering (`0x7B`/`0x7C` to `0x79`/`0x7A`) after karlb flagged a collision with an existing OP Stack allocation. See [Feedback Evolution](/feedback-evolution).
 
 **9.4 Has EIP-8130 been added to a hard-fork "Considered for Inclusion" list?**
-No; that milestone is documented for EIP-8141 (Hegotá CFI list, PR #11537), not for EIP-8130. See [Competing Standards](/competing-standards).
+Not for Ethereum L1. Base has separately announced EIP-8130 for its Cobalt upgrade in September 2026 and OP Stack rollout later in the year. See [Feedback Evolution](/feedback-evolution).
 
 **9.5 What are the two currently open PRs?**
 #11578 (pochenai's `opaque_input` field, superseded in spirit by the shipped `metadata` field but not formally reconciled) and #11919 (chunter-cb's expiry-at-create/import proposal). See [Merged Changes](/merged-changes).
@@ -219,4 +222,7 @@ No; that milestone is documented for EIP-8141 (Hegotá CFI list, PR #11537), not
 PR #11918 (Jul 13, +277/-153), which redefined admin as a predicate, split the PAYER bit into `SELF_PAYER`/`SPONSOR_PAYER`, removed the SIGNER bit, and simplified Account Lock's lifecycle, larger than even the original account-changes unification in PR #11367. See [Merged Changes](/merged-changes).
 
 **9.7 Is there an application-layer RPC proposal for EIP-8130 payers?**
-Yes. [Open ERC PR #1555](https://github.com/ethereum/ERCs/pull/1555) proposes ERC-8168 and `payer_*` RPC methods; it still uses the pre-#11918 `PAYER` term, so it is not aligned with the current scope split.
+Yes. [Open ERC PR #1555](https://github.com/ethereum/ERCs/pull/1555) proposes ERC-8168 and `payer_*` RPC methods, including sponsored and token-payment offers. It still uses the pre-#11918 `PAYER` term, so its terminology is not aligned with the current scope split.
+
+**9.8 Is EIP-8130 scheduled to launch anywhere?**
+Base [announced](https://x.com/buildonbase/status/2078132881017245881) Cobalt activation for September 2026 and OP Stack rollout later in the year. Vibenet is available for testing; production activation has not happened yet.

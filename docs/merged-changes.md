@@ -222,7 +222,7 @@ The duplicate PR #11144 (opened January 21, closed January 29) is tracked under 
 
 ## Active/Open PRs
 
-*As of July 15, 2026.*
+*As of July 20, 2026.*
 
 ### PR #11578 — "Add opaque_input bytes field"
 

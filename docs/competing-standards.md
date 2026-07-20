@@ -30,7 +30,7 @@ The distinction that separates EIP-8130 from EIP-8202 and EIP-XXXX is subtle but
 
 ## 2. EIP-8141 — Frame Transaction
 
-Authored by Felix Lange, Vitalik Buterin, lightclient, and others, submitted as PR #11202 (Jan 29, 2026). It introduces a new EIP-2718 type (`0x06`) built from up to 64 purpose-labeled "frames" (DEFAULT, VERIFY, SENDER), with an `APPROVE` opcode as the core validation primitive and arbitrary account code able to verify any signature scheme. Its two-tier model keeps execution fully general while restricting *public mempool relay* to a small set of validation-prefix shapes with a 100,000-gas cap and banned-opcode list. That is the opposite of EIP-8130's fixed-authenticator gate, since any code that fits the prefix shape can still authenticate a relayable transaction. See [/eip-8141](/eip-8141).
+Authored by Felix Lange, Vitalik Buterin, lightclient, and others, submitted as PR #11202 (Jan 29, 2026). It introduces a new EIP-2718 type (`0x06`) built from up to 64 purpose-labeled "frames" (DEFAULT, VERIFY, SENDER), with an `APPROVE` opcode as the core validation primitive and arbitrary account code able to verify any signature scheme. Its two-tier model keeps execution fully general while restricting *public mempool relay* to a small set of validation-prefix shapes with a 100,000-gas cap and banned-opcode list. Six July 17 merges pinned secp256k1 encoding, restored EOA sponsorship, clarified execution-approval scope and opcode operands, corrected the skipped receipt code, and applied the EIP-7623 calldata floor. See [/eip-8141](/eip-8141).
 
 ## 3. EIP-8175 — Composable Transaction
 
@@ -86,8 +86,8 @@ The "Rated" characterizations for EIP-8141/8175/8202/8223/8224 come from a cross
 
 | Proposal | Status | PR activity | Notable adoption signal |
 |---|---|---|---|
-| EIP-8130 | Draft | 40 merged PRs (#11186 through #11918); 2 open (#11578, #11919) | Related open ERC-8168 defines payer-service RPCs but still uses the old `PAYER` term; no fork-inclusion listing |
-| EIP-8141 | Draft, Core | 32 commits to its canonical file; 5 direct open PRs after #11932 opened Jul 15, plus open sibling EIP-8288 | On the Hegotá "Considered for Inclusion" list; open ERC-8286 builds on it; this is not final inclusion or activation |
+| EIP-8130 | Draft | 40 merged PRs (#11186 through #11918); 2 open (#11578, #11919) | Base announced Cobalt activation for Sep 2026 and OP Stack rollout later in 2026; Vibenet is live for testing, production activation is not |
+| EIP-8141 | Draft, Core | 38 commits to its canonical file; 11 direct open PRs as of Jul 20, plus open sibling EIP-8288 | On the Hegotá "Considered for Inclusion" list; open ERC-8286 builds on it; this is not final inclusion or activation |
 | EIP-8175 | Draft | 3 merged PRs and 1 open Falcon-512 draft PR | No fork-inclusion or dependent-ERC activity found in current research |
 | EIP-8202 | Draft, merged to master | 1 PR (#11438, merged Apr 22, 2026) | No fork-inclusion activity found in current research |
 | EIP-8223 | Open PR only | 1 PR (#11509, opened Apr 11, 2026), no merge or review cycle yet | Very early stage |

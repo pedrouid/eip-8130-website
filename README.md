@@ -2,7 +2,7 @@
 
 Source-driven analysis of [EIP-8130](https://eips.ethereum.org/EIPS/eip-8130) (Account Abstraction by Account Configuration), tracking its design, review history, alternatives, and unresolved questions.
 
-Last updated: July 15, 2026. Tracks the canonical spec through PR #11918, with EIP PRs #11578 and #11919 open. Also tracks the related ERC-8168 draft in ERC PR #1555.
+Last updated: July 20, 2026. Tracks the unchanged canonical spec through PR #11918, with EIP PRs #11578 and #11919 open. Also tracks ERC-8168, ERC-8340, and Base's announced September Cobalt rollout with broader OP Stack deployment later in 2026.
 
 > [!IMPORTANT]
 > EIP-8130 is a Draft proposal. It is not finalized, scheduled for an Ethereum hard fork, or available on Ethereum mainnet. Unless a paragraph is explicitly labeled as analysis, protocol behavior described here summarizes the current draft rather than a deployed system.

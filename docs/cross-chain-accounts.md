@@ -79,6 +79,8 @@ The same portability story extends to chains that have not adopted EIP-8130 as a
 
 A related but distinct discussion on the EthMagicians thread is worth noting for context. Starting at post [#12](https://ethereum-magicians.org/t/eip-8130-account-abstraction-by-account-configurations/25952) (karlb, June 5, 2026), karlb and chunter-cb worked through how a chain could set a default authenticator at the protocol level to let existing Celo CIP-64 accounts adopt EIP-8130 semantics "without modifying the state of all user accounts" (post #12), eventually converging (posts #19-#22, June 29-July 8, 2026) on an RPC-shim migration path and a transaction-type renumbering (`0x7b`/`0x7c` to `0x79`/`0x7a`) to avoid colliding with CIP-64's existing OP Stack allocation. That is a migration-continuity problem, not the `chain_id = 0` replay mechanism described above, but it reflects the same underlying design pressure: making an account's identity and configuration survive a system transition without touching every account individually.
 
+Base's July 17 [Native Account Abstraction announcement](https://x.com/buildonbase/status/2078132881017245881) turns that portability claim into an adoption commitment: Base says EIP-8130 will launch with Cobalt in September 2026 and reach OP Stack chains later in the year, while accounts remain usable on non-8130 EVM chains through the contract paths described above. This is a rollout plan, not evidence that cross-chain configuration is already operating in production.
+
 ## 5. Contrast: The Alternatives Don't Address This
 
 | Proposal | Cross-chain account portability |

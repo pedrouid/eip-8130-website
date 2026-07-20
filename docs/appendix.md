@@ -68,7 +68,8 @@
 
 | Date | Proposal | Status | Relationship |
 |---|---|---|---|
-| 2026-02-20 | [ERC-8168 / ERC PR #1555](https://github.com/ethereum/ERCs/pull/1555) | Open | Application-layer `payer_*` RPC methods over `paymasterService`; not the canonical-authenticator-set companion ERC, and its current text still uses the superseded `PAYER` scope term |
+| 2026-02-20 | [ERC-8168 / ERC PR #1555](https://github.com/ethereum/ERCs/pull/1555) | Open | Application-layer `payer_*` RPC methods over `paymasterService`, including sponsored and token-payment offers; not the canonical-authenticator-set companion ERC, and its current text still uses the superseded `PAYER` scope term |
+| 2026-07-15 | [ERC-8340 / ERC PR #1883](https://github.com/ethereum/ERCs/pull/1883) | Open draft | Deterministic CBOR encoding for EIP-8130's opaque `metadata` field, including attribution, scope, and offchain commitments |
 
 The canonical authenticator set's companion ERC still has no assigned number. Separately, the Celo CIP-64 migration discussion (EthMagicians posts #12-22, June 5 - July 8, 2026) drove the `AA_TX_TYPE`/`AA_PAYER_TYPE` renumbering in #11903 to avoid a collision with Celo's OP Stack transaction type.
 
@@ -101,6 +102,9 @@ The canonical authenticator set's companion ERC still has no assigned number. Se
 
 ## External Resources
 
+- [Native Account Abstraction](https://x.com/buildonbase/status/2078132881017245881)
+- [Base Vibenet](https://vibes.base.org/)
+- [ERC-8340: Transaction Metadata Encoding](https://ethereum-magicians.org/t/erc-8340-transaction-metadata-encoding/29022)
 - [Frame Transactions vs. SchemedTransactions for Post-Quantum Ethereum](https://ethereum-magicians.org/t/frame-transactions-vs-schemedtransactions-for-post-quantum-ethereum/28056)
 - [EIP-8141 Demo](https://demo.eip-8141.ethrex.xyz/)
 

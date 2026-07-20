@@ -1,9 +1,9 @@
 # Current Spec
 
-EIP-8130, "Account Abstraction by Account Configuration," is a Core, Standards Track proposal by Chris Hunter (@chunter-cb, Coinbase/Base), draft-created 2025-10-14, with 40 merged PRs against the spec file as of 2026-07-15. It requires only EIP-170 (max code size) and EIP-2718 (typed transactions) in its frontmatter, though it depends heavily on EIP-7702's delegation-indicator mechanism (`0xef0100`) in body text without listing 7702 in `requires`.
+EIP-8130, "Account Abstraction by Account Configuration," is a Core, Standards Track proposal by Chris Hunter (@chunter-cb, Coinbase/Base), draft-created 2025-10-14, with 40 merged PRs against the spec file as of 2026-07-20. It requires only EIP-170 (max code size) and EIP-2718 (typed transactions) in its frontmatter, though it depends heavily on EIP-7702's delegation-indicator mechanism (`0xef0100`) in body text without listing 7702 in `requires`.
 
 ::: warning Proposal status
-This page summarizes the canonical **Draft**. EIP-8130 is not finalized, scheduled for a hard fork, or active on Ethereum mainnet. Present-tense wording below describes the proposal's rules, not a deployed network feature. Open PRs are called out explicitly and are not treated as current spec text.
+This page summarizes the canonical **Draft**. EIP-8130 is not finalized, scheduled for an Ethereum L1 hard fork, or active on Ethereum mainnet. [Base announced](https://x.com/buildonbase/status/2078132881017245881) plans to activate it in the Base Cobalt upgrade in September 2026 and on OP Stack chains later in the year; that is an announced rollout, not current deployment. Present-tense wording below describes the proposal's rules. Open PRs are called out explicitly and are not treated as current spec text.
 :::
 
 The problem it solves in one sentence: authentication is separated from account logic, so a node can decide whether to accept a transaction by checking the *identity* of the authenticator contract a transaction declares against a small canonical allowlist, instead of executing arbitrary wallet bytecode to figure out whether the transaction is valid.
@@ -147,7 +147,7 @@ call = rlp([to, data])
 | `gas_limit` | Budget for sender-intrinsic gas plus call execution. Payer authentication is metered separately and does not draw from `gas_limit` |
 | `account_changes` | Empty, or typed entries: create (`0x00`), config change (`0x01`), delegation (`0x02`) |
 | `calls` | Empty, or an ordered array of call phases |
-| `metadata` | Empty, or opaque attribution/annotation bytes |
+| `metadata` | Empty, or opaque attribution/annotation bytes. The core EIP does not interpret its encoding |
 | `payer` | Empty = sender pays; 20-byte address = a specific payer is required |
 | `sender_auth` | Raw ECDSA (EOA path) or `authenticator \|\| data` (configured-actor path) |
 | `payer_auth` | Empty = self-pay; otherwise `authenticator \|\| data`, same shape as `sender_auth` |

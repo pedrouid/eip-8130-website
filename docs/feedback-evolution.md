@@ -94,10 +94,22 @@ This phase runs two threads in parallel: a forum discussion about migrating an e
 
 A same-day follow-up, PR #11919 (opened July 13, still open), adds an optional `expiry` to initial actors at create and import time, committed into the per-actor address-derivation preimage so a front-runner cannot alter it before inclusion.
 
+**The opaque metadata field gains an application-layer format (ERC-8340 / ERC PR #1883, opened July 15).** The core EIP deliberately leaves `metadata` uninterpreted. ERC-8340 proposes deterministic CBOR records for attribution, memos, phase/call scope, and salted offchain commitments, plus an ERC-5792 wallet capability. The rationale is interoperability: without a shared layout, each producer invents framing and indexers cannot decode across wallets. It remains a draft ERC and does not alter consensus treatment of the field.
+
+---
+
+## Phase 8: From Draft Design to Announced Rollout (July 17, 2026)
+
+**Base names an activation window.** In [Native Account Abstraction](https://x.com/buildonbase/status/2078132881017245881), Base announced a partnership with Optimism, Coinbase, and WalletConnect to ship EIP-8130 first in Base's Cobalt upgrade in September 2026, then across OP Stack chains later in the year. This is the first concrete chain-rollout commitment documented by this site. It does not finalize the EIP or activate it on Ethereum L1.
+
+**Vibenet turns implementation into a public test surface.** The announcement identifies [Base Vibenet](https://vibes.base.org/) as an ephemeral pre-activation devnet and asks chain, wallet, and application developers to integrate early. It says existing application flows such as `wallet_sendCalls` should continue working, while wallets can add native-AA support for payer services, session keys, sub-accounts, and metadata.
+
+**Base publishes comparative cost claims.** Against its ERC-4337 smart-account baseline, Base reports a USDC transfer falling from 125,000 to 46,000 gas and from 1,090 to 180 bytes. Its passkey example falls from 173,000 to 68,700 gas and from 1,940 to 890 bytes. The post provides no benchmark harness or reproducibility details, so these are vendor-reported adoption evidence, not independently verified protocol measurements.
+
 ---
 
 ## Where Things Stand
 
-As of July 15, 2026, EIP-8130 carries `requires: 170, 2718` and has moved through three complete terminology overhauls (keys to owners, owners to actors, verifier to authenticator), one canonical tx-type renumbering forced by a real-world Celo CIP-64 collision on the OP Stack, and a scope model that has gone from a single flat authority bit to five independently composable grants. Two PRs remain open: #11578 (the still-unreconciled `opaque_input` proposal, superseded in spirit by the shipped `metadata` field) and #11919 (expiry-at-create, a direct extension of the July 13 scope redesign). The Celo CIP-64 migration discussion (Phase 7) has not yet produced a merged spec change beyond the transaction-type renumbering; the question of whether a chain-level default verifier ships to support that migration path remains open on the forum thread as of post #22.
+As of July 20, 2026, EIP-8130 carries `requires: 170, 2718` and remains a Draft with two open EIP PRs: #11578 (`opaque_input`) and #11919 (expiry at create/import). The forum thread remains at post #22, and the chain-level default-authenticator question is unresolved. Application-layer work includes open ERC-8168 and ERC-8340. Base has announced September activation through Cobalt and broader OP Stack rollout later in 2026, with Vibenet available for testing, but no production activation has occurred yet.
 
 For the mechanical PR-by-PR record, see [Merged Changes](/merged-changes). For the spec as it stands today, see [Current Spec](/current-spec).

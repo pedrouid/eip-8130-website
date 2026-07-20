@@ -4,7 +4,7 @@
 
 ## TL;DR
 
-EIP-8130's developer bet is structural: replace arbitrary sender-account validation with a small canonical authenticator set, and standardize account configuration around a shared `ACCOUNT_CONFIG_ADDRESS`. That promises a predictable wallet integration surface, but makes canonical-set growth a coordination question. "No new opcodes" is also narrower than "no new protocol surface": clients would still implement a new transaction type, system contract, nonce manager, transaction-context precompile, and replay rules.
+EIP-8130's developer bet is structural: replace arbitrary sender-account validation with a small canonical authenticator set, and standardize account configuration around a shared `ACCOUNT_CONFIG_ADDRESS`. That promises a predictable wallet integration surface, but makes canonical-set growth a coordination question. "No new opcodes" is also narrower than "no new protocol surface": clients would still implement a new transaction type, system contract, nonce manager, transaction-context precompile, and replay rules. Open ERC-8168 and ERC-8340 now provide concrete payer-service and metadata-encoding integration surfaces, but neither is finalized.
 
 ---
 
@@ -66,7 +66,7 @@ A narrower reading of "lowers the bar" is about audit surface rather than raw im
 
 ## 4. Contrast with the Modular-Account (ERC-7579-style) Ecosystem Question
 
-EIP-8141's ecosystem is pursuing a materially different path to the same "avoid re-implementing wallet integration per app" problem: rather than defining a canonical authenticator set at the base-EIP layer, it is exploring modular-account composability at the **application (ERC) layer**, via ERC-8286 ("Modular Accounts for Frame Transactions," ERC PR #1794, still open as of July 15, 2026).
+EIP-8141's ecosystem is pursuing a materially different path to the same "avoid re-implementing wallet integration per app" problem: rather than defining a canonical authenticator set at the base-EIP layer, it is exploring modular-account composability at the **application (ERC) layer**, via ERC-8286 ("Modular Accounts for Frame Transactions," ERC PR #1794, still open as of July 20, 2026).
 
 The difference is worth stating precisely, since "canonical set" and "modular account" are easy to conflate as solving the same problem when they sit at different layers:
 
@@ -85,12 +85,24 @@ No public EIP-8130-vs-ERC-8286 comparison thread exists; this contrast is constr
 
 ## 5. Payer-Service Tooling: ERC-8168
 
-[Open ERC PR #1555](https://github.com/ethereum/ERCs/pull/1555) proposes ERC-8168, **8130 Payer Web Service Capability**. It extends an existing `paymasterService` capability with `payer_*` JSON-RPC methods for discovery, quotes, transaction construction, and status checks.
+[Open ERC PR #1555](https://github.com/ethereum/ERCs/pull/1555) proposes ERC-8168, **8130 Payer Service Capability**. It reuses the ERC-7677 `paymasterService` capability while defining `payer_*` JSON-RPC methods for EIP-8130. Apps can supply the same service URL; wallets choose `pm_*` for ERC-4337 or `payer_*` for EIP-8130.
 
-This is the clearest application-layer tooling proposal found for EIP-8130, but it is not the canonical-authenticator-set companion ERC. It also trails the core draft: its current text still refers to the old `PAYER` scope, which PR #11918 split into `SELF_PAYER` and `SPONSOR_PAYER`. Implementers should therefore treat the RPC shape as an open proposal, not a synchronized interface for the latest EIP-8130 draft.
+The July 15-16 update added an optional token-offer `paymentMode`: `transfer` requires one canonical ERC-20 transfer that a payer can inspect, while `any` permits richer phase-zero calls if simulation shows the quoted recipient received exactly the quoted amount. The draft also distinguishes required terms/send methods from optional signing and standing-balance methods.
+
+This is the clearest payer-tooling proposal found for EIP-8130, but it is not the canonical-authenticator-set companion ERC. It still refers to the old `PAYER` scope, which PR #11918 split into `SELF_PAYER` and `SPONSOR_PAYER`. Implementers should treat the RPC shape as open and not fully synchronized with the latest EIP-8130 terminology.
+
+## 6. Metadata Tooling: ERC-8340
+
+[Open draft ERC PR #1883](https://github.com/ethereum/ERCs/pull/1883) proposes ERC-8340, **Transaction Metadata Encoding**, for EIP-8130's opaque `metadata` bytes. It defines deterministic CBOR forms for attribution, memos, phase/call scoping, and salted commitments to selectively disclosed offchain data. It also proposes an ERC-5792 `metadata` capability that supersedes `dataSuffix`.
+
+This fills a different gap from ERC-8168. The EIP supplies a signed but semantically inert carrier; ERC-8340 gives wallets, apps, and indexers one parser. It remains a draft, so applications must treat the bytes as optional annotations with no execution effect.
+
+## 7. Base Cobalt Rollout and Benchmarks
+
+In its July 17 [Native Account Abstraction announcement](https://x.com/buildonbase/status/2078132881017245881), Base named September 2026 for activation in Cobalt and later-2026 rollout across OP Stack chains, with [Base Vibenet](https://vibes.base.org/) as the early integration surface. Base reports 46,000 gas and 180 bytes for a native-AA USDC transfer versus 125,000 gas and 1,090 bytes through its ERC-4337 baseline; its passkey example reports 68,700 gas and 890 bytes versus 173,000 gas and 1,940 bytes. The post does not publish a benchmark harness, so these figures are a vendor claim, not an independently reproducible result.
 
 ---
 
 ## Summary
 
-EIP-8130 trades permissionless validation growth for a smaller direct-authentication surface. Cross-chain address reuse is conditional and updates still need per-chain submission. The absence of new opcodes reduces EVM-interpreter work, not the total consensus implementation. At the tooling layer, ERC-8168 is a useful payer-service signal, but remains open and currently lags the core draft's scope terminology.
+EIP-8130 trades permissionless validation growth for a smaller direct-authentication surface. Cross-chain address reuse is conditional, and no-opcode design still leaves substantial client work. ERC-8168 and ERC-8340 remain open, but Base's Cobalt schedule and Vibenet make the implementation path concrete.
