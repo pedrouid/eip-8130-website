@@ -26,10 +26,6 @@ features:
     details: payer and payer_auth fields cover third-party gas. No bundlers or relayers needed
 ---
 
-::: info Base rollout announced
-[Base announced](https://x.com/buildonbase/status/2078132881017245881) plans to activate EIP-8130 in its Cobalt upgrade in September 2026, followed by OP Stack rollout later in the year. [Base Vibenet](https://vibes.base.org/) is the pre-activation devnet; the EIP remains a Draft and is not yet active on Base or Ethereum mainnet.
-:::
-
 ## What to read first?
 
 Pick the route that matches why you're here.
