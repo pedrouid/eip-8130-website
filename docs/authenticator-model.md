@@ -94,6 +94,8 @@ This is itself a case study in the tradeoff above. The original scope model (PR 
 
 `authenticateActor` (transaction validation) and `verifySignature` (off-chain signing) are deliberately different entry points: the former reverts on failure and returns the actor's raw authorization surface; the latter returns a plain boolean. Both route through the same authenticator resolution, with the operational-authority check layered on top only for signing.
 
+The canonical draft passes the supplied `hash` directly into authentication. Base's reference implementation diverged in [PR #45](https://github.com/base/eip-8130/pull/45) (merged July 24): `verifySignature` now authenticates an account-scoped EIP-712 `replaySafeHash(account, hash)`, preventing a shared credential from replaying one ERC-1271 signature across multiple accounts. That is an implementation hardening, not yet canonical EIP-8130 behavior.
+
 ---
 
 ## 5. How New Authenticators Get Deployed and Adopted
@@ -101,6 +103,8 @@ This is itself a case study in the tradeoff above. The original scope model (PR 
 Three thresholds govern whether a new authenticator can authenticate transactions. Deployment is permissionless. Account registration requires that account's admin authority. Direct block-level AA authentication additionally requires canonical-set membership, which the draft delegates to a future companion ERC and node allowlists. The text does not define the activation process for a changed set, so its operational cost should be described as unresolved cross-client coordination rather than assumed to be lighter than a hard fork.
 
 The practical effect is a two-speed adoption model: a wallet can experiment with a novel authenticator immediately for anything not needing mempool-path inclusion, but getting it onto the fast path nodes actually allowlist is a slower, ecosystem-level process. This mirrors, at a smaller scale, a tension the EthMagicians thread surfaced early: rmeissner's post #5 (Jan 22, 2026) worried bundling authentication and gas-payment logic into one EIP would "lower the chances of adoption by the core team due to complexity," prompting chunter to split the proposal's scope. The same instinct, a narrow fast path with broader functionality behind slower registration, recurs in the canonical-set design.
+
+Open EIP-8141 [PR #12011](https://github.com/ethereum/EIPs/pull/12011) now proposes a contrasting registry model: protocol-validated schemes would form an explicit consensus registry extended only by network upgrades, while `ARBITRARY` remains the account-code escape hatch. It is not merged, but it sharpens the distinction between EIP-8130's companion-ERC/node-allowlist model and a registry embedded directly in consensus.
 
 The `Existing Smart Contracts` account type in the spec's own Account Types table gives the concrete migration path for wallets predating EIP-8130: an already-deployed ERC-4337 account registers actors via `importAccount()`, authorized by a signature checked against its existing ERC-1271 implementation, without redeploying.
 

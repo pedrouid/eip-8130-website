@@ -1,6 +1,6 @@
 # Feedback Evolution
 
-This page traces how community feedback and PR review shaped EIP-8130 (Account Abstraction by Account Configuration) from its October 2025 forum origin through the July 2026 transaction-type renumbering. It is organized into chronological, thematic phases. Each phase cites the PR or forum post that drove a change and explains the reasoning behind it, not just the mechanical diff (mechanics live on [Merged Changes](/merged-changes)).
+This page traces how community feedback and PR review shaped EIP-8130 (Account Abstraction by Account Configuration) from its October 2025 forum origin through the July 2026 public implementation work. It is organized into chronological, thematic phases. Each phase cites the PR or forum post that drove a change and explains the reasoning behind it, not just the mechanical diff (mechanics live on [Merged Changes](/merged-changes)).
 
 ---
 
@@ -98,7 +98,7 @@ A same-day follow-up, PR #11919 (opened July 13, still open), adds an optional `
 
 ---
 
-## Phase 8: From Draft Design to Announced Rollout (July 17, 2026)
+## Phase 8: From Draft Design to Public Implementation (July 17 – July 24, 2026)
 
 **Base names an activation window.** In [Native Account Abstraction](https://x.com/buildonbase/status/2078132881017245881), Base announced a partnership with Optimism, Coinbase, and WalletConnect to ship EIP-8130 first in Base's Cobalt upgrade in September 2026, then across OP Stack chains later in the year. This is the first concrete chain-rollout commitment documented by this site. It does not finalize the EIP or activate it on Ethereum L1.
 
@@ -106,10 +106,14 @@ A same-day follow-up, PR #11919 (opened July 13, still open), adds an optional `
 
 **Base publishes comparative cost claims.** Against its ERC-4337 smart-account baseline, Base reports a USDC transfer falling from 125,000 to 46,000 gas and from 1,090 to 180 bytes. Its passkey example falls from 173,000 to 68,700 gas and from 1,940 to 890 bytes. The post provides no benchmark harness or reproducibility details, so these are vendor-reported adoption evidence, not independently verified protocol measurements.
 
+**Scoped actors get a concrete "remote control" test (posts #23-26, July 21-22).** After karlb confirmed the transaction-type renumbering resolved Celo's collision (post #23), cyrus asked whether an EOA could originate transactions for a smart account without gaining actor-management authority (post #24). chunter answered that a non-admin actor can combine `SENDER | SELF_PAYER | NONCE`, optionally adding `SPONSOR_PAYER`, while only `scope == 0x00` remains admin (post #25). Cyrus then asked whether account code itself can add or remove a `SENDER` actor (post #26). That question remains unanswered on the thread; the canonical text says anyone may relay an actor change, but its signed authorization must resolve to an existing admin.
+
+**The reference implementation exposes portability and signing boundaries.** Base's implementation [PR #44](https://github.com/base/eip-8130/pull/44) (merged July 22) added `executeAttested` for ERC-4337-only chains with no transaction-context precompile, explicitly moving actor authenticity and confinement into the account. [PR #45](https://github.com/base/eip-8130/pull/45) (merged July 24) wrapped ERC-1271 checks in an account-scoped EIP-712 `replaySafeHash` to prevent a credential shared by multiple accounts from replaying one signature across all of them. Neither behavior is merged into the canonical EIP text, so they are implementation evidence and potential specification follow-up, not current consensus rules.
+
 ---
 
 ## Where Things Stand
 
-As of July 20, 2026, EIP-8130 carries `requires: 170, 2718` and remains a Draft with two open EIP PRs: #11578 (`opaque_input`) and #11919 (expiry at create/import). The forum thread remains at post #22, and the chain-level default-authenticator question is unresolved. Application-layer work includes open ERC-8168 and ERC-8340. Base has announced September activation through Cobalt and broader OP Stack rollout later in 2026, with Vibenet available for testing, but no production activation has occurred yet.
+As of July 28, 2026, EIP-8130 carries `requires: 170, 2718` and remains a Draft with two open EIP PRs: #11578 (`opaque_input`) and #11919 (expiry at create/import). The forum reaches post #26, ending on an unanswered actor-management question whose current spec answer still requires admin authorization. Open application-layer work includes ERC-8168 and ERC-8340. Base has announced September activation through Cobalt, published a reference implementation and builder guide, and made Vibenet available for testing, but no production activation has occurred yet.
 
 For the mechanical PR-by-PR record, see [Merged Changes](/merged-changes). For the spec as it stands today, see [Current Spec](/current-spec).

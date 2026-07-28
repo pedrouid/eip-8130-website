@@ -57,6 +57,8 @@ P-256 and Falcon-512 appeared during PR #11438's development and in its original
 
 EIP-8141's outer `signatures` list includes `ARBITRARY (0x0)`. The protocol does not verify those bytes cryptographically; account code reads them through `SIGPARAM` and performs custom verification in a VERIFY frame. Under the proposal, that can express a PQ verifier without adding a protocol-native scheme.
 
+Open [PR #12011](https://github.com/ethereum/EIPs/pull/12011) proposes formalizing EIP-8141's protocol-validated scheme table as a consensus registry. New fixed-cost schemes would be added by network upgrade, while `ARBITRARY` would remain the path for account-code experimentation. It is a useful governance contrast with EIP-8130's companion-ERC and node-allowlist model, but it is not part of the merged EIP-8141 draft.
+
 The open EIP-8288 sibling targets a different problem: aggregating PQ signatures and STARK proofs at block level through a new frame mode and a `recursive_stark` header field. It remains an unmerged proposal under active review, not a capability in the current EIP-8141 draft or a deployed Ethereum feature.
 
 EIP-8175's current draft defines secp256k1 and Ed25519. Draft PR #11431 proposes Falcon-512, but it is not merged.
@@ -66,7 +68,7 @@ EIP-8175's current draft defines secp256k1 and Ed25519. Draft PR #11431 proposes
 | Proposal | Current draft's PQ mechanism | Adding another scheme | Aggregation |
 |---|---|---|---|
 | EIP-8130 | None in the canonical set | Deploying is permissionless; direct AA use needs canonical-set specification and coordinated client adoption | None specified |
-| EIP-8141 | Custom verifier through `ARBITRARY` witness bytes and account code | Account code can implement another verifier within the frame rules | Open sibling EIP-8288 proposes block-level aggregation |
+| EIP-8141 | Custom verifier through `ARBITRARY` witness bytes and account code | Account code can implement another verifier; open PR #12011 proposes a network-upgrade scheme registry | Open sibling EIP-8288 proposes block-level aggregation |
 | EIP-8175 | None; secp256k1 and Ed25519 only | New protocol signature type; Falcon-512 is an open draft PR | None specified |
 | EIP-8202 | `SCHEME_EPHEMERAL_K1`, based on single-use Merkle-committed ECDSA keys | A distinct EIP registers another `scheme_id`; no envelope redesign | None specified |
 | Tempo-like gist | None; secp256k1, P-256, and WebAuthn | Transaction-format change and client activation | None specified |

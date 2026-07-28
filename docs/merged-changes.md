@@ -222,7 +222,7 @@ The duplicate PR #11144 (opened January 21, closed January 29) is tracked under 
 
 ## Active/Open PRs
 
-*As of July 20, 2026.*
+*As of July 28, 2026.*
 
 ### PR #11578 — "Add opaque_input bytes field"
 
@@ -238,7 +238,7 @@ The duplicate PR #11144 (opened January 21, closed January 29) is tracked under 
 - **Opened**: July 13, 2026 — +18/-18
 - **Why**: Expiry was previously only settable via a post-deployment config change; wallets creating an account with a session-style initial actor had no way to bound its lifetime at creation time.
 - **Proposed change**: Adds an optional `uint48 expiry` to each initial actor at `createAccount`/`importAccount` time, committing `expiry` into the per-actor address-derivation preimage (`actorId || authenticator || scope || expiry || policyData`) so a front-runner cannot alter it.
-- **Status**: Freshly opened the same day PR #11918 merged, a direct extension of that PR's `policyData`-at-create work. Author's own PR, no review comments yet.
+- **Status**: Still open as a draft with no review comments. It directly extends PR #11918's `policyData`-at-create work.
 
 ---
 

@@ -2,11 +2,11 @@
 
 ---
 
-The "Original (Oct 14)" column reflects the baseline established by [PR #11186](https://github.com/ethereum/EIPs/pull/11186), the first version of `eip-8130.md` merged into the ethereum/EIPs repo (merged February 28, 2026). October 14, 2025 is the EIP's `created` frontmatter date (concept inception; the EthMagicians thread itself opened October 24); no spec text existed in the repo at that time, so the comparison below is against the substance of #11186, not a document that existed on that calendar date. "Latest (Jul 20)" reflects unchanged `master` as of July 20, 2026, after [PR #11918](https://github.com/ethereum/EIPs/pull/11918) (merged July 13, 2026).
+The "Original (Oct 14)" column reflects the baseline established by [PR #11186](https://github.com/ethereum/EIPs/pull/11186), the first version of `eip-8130.md` merged into the ethereum/EIPs repo (merged February 28, 2026). October 14, 2025 is the EIP's `created` frontmatter date (concept inception; the EthMagicians thread itself opened October 24); no spec text existed in the repo at that time, so the comparison below is against the substance of #11186, not a document that existed on that calendar date. "Latest (Jul 28)" reflects unchanged `master` as of July 28, 2026, after [PR #11918](https://github.com/ethereum/EIPs/pull/11918) (merged July 13, 2026).
 
 ## Structural Comparison
 
-| Aspect | Original (Oct 14) | Latest (Jul 20) |
+| Aspect | Original (Oct 14) | Latest (Jul 28) |
 |---|---|---|
 | **Authority-holder terminology** | "Keys," identified by `keyId`, stored in `key_config` | "Actors," identified by `actorId`, stored in `actor_config`. Renamed keys to owners in PR #11380 (Mar 6), then owners to actors in PR #11764 (Jun 4) |
 | **Signature-verification terminology** | "Verifiers," via `IAuthVerifier.verify()` | "Authenticators," via `IAuthenticator.authenticate()`. `IAuthVerifier` renamed `IVerifier` in PR #11388 (Mar 9), then `IVerifier` renamed `IAuthenticator` in PR #11785 (Jun 9) |
@@ -46,7 +46,7 @@ In the original model an empty `key_config` slot meant the implicit EOA key was 
 
 ## Active Proposals That May Change the Comparison
 
-*As of July 20, 2026, two PRs remain open against EIP-8130 that would extend this comparison table.*
+*As of July 28, 2026, two PRs remain open against EIP-8130 that would extend this comparison table.*
 
 | Proposal | PR | Impact |
 |---|---|---|

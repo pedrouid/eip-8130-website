@@ -90,7 +90,7 @@ Signature sizes are bounded (`MAX_WEBAUTHN_SIG_SIZE = 2,049` bytes) and verifica
 
 ## Activity
 
-The proposal exists only as a gist authored by Georgios Konstantopoulos (Paradigm/Reth). There is no PR against `ethereum/EIPs`, no assigned EIP number, and no EthMagicians discussion thread. It is referenced in community discussion of the account-abstraction design space but has not been formally submitted for review as of July 20, 2026. No participant list, review comments, or merge history exist to report beyond the gist itself.
+The proposal exists only as a gist authored by Georgios Konstantopoulos (Paradigm/Reth). There is no PR against `ethereum/EIPs`, no assigned EIP number, and no EthMagicians discussion thread. It is referenced in community discussion of the account-abstraction design space but has not been formally submitted for review as of July 28, 2026. No participant list, review comments, or merge history exist to report beyond the gist itself.
 
 ---
 

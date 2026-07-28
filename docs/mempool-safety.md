@@ -100,10 +100,12 @@ The useful claim is “known implementation and enumerable dependencies,” not 
 |---|---|---|
 | Validation program | Canonical authenticator selected by address | Account-selected VERIFY-frame program |
 | Public relay boundary | Canonical authenticator set plus EIP-8130 validity checks | Four recognized validation-prefix shapes plus trace and opcode rules |
-| EVM during validation | Contract `STATICCALL`, unless k1 or enshrined | VERIFY-frame EVM simulation |
+| EVM during validation | Contract `STATICCALL`, unless k1 or enshrined | Generic VERIFY prefixes are simulated; protocol-defined prefixes may be evaluated directly |
 | Gas bound | Authenticator-specific metering or optional fixed enshrined cost | `MAX_VERIFY_GAS = 100,000` for the public validation prefix |
 | State dependencies | Defined by account config and the selected authenticator | Recorded sender slots, paymaster state, and allowed validation-prefix dependencies |
 | Outside the main path | Non-canonical authenticators cannot directly authenticate AA transactions | Nonconforming frame transactions may remain consensus-valid but are not publicly relayed |
+
+Merged EIP-8141 PR #12001 permits direct evaluation, with the same gas accounting as simulation, when a validation prefix contains only protocol-defined default code, the expiry verifier, or the canonical paymaster. Common EOA and canonical-paymaster flows can therefore avoid EVM tracing, while deploy frames and custom account validation still use the generic trace rules. Open PR #12007 separately proposes replacement, eviction, and aggregate payer-exposure rules; those lifecycle rules are not yet canonical.
 
 EIP-8141 also defines special handling for canonical paymasters and a limited public-mempool path for non-canonical paymasters. Earlier text on this site incorrectly described all non-canonical paymasters as private-channel only.
 

@@ -19,7 +19,7 @@ It lets a node decide whether to accept a transaction by checking the identity o
 `requires: 170, 2718` as of the current spec; the original submission required `1153, 2718`, and `7702` was briefly required (PR #11367) then dropped (PR #11492). See [Original vs Latest](/original-vs-latest).
 
 **1.5 How mature is the spec?**
-40 merged PRs against the spec file as of July 20, 2026, but it remains a Draft with no Ethereum L1 activation scheduled. Base separately announced Cobalt activation for September 2026. See [Merged Changes](/merged-changes).
+40 merged PRs against the spec file as of July 28, 2026, but it remains a Draft with no Ethereum L1 activation scheduled. Base separately announced Cobalt activation for September 2026. See [Merged Changes](/merged-changes).
 
 **1.6 Does EIP-8130 replace ERC-4337?**
 No. The spec frames coexistence, not replacement: an already-deployed ERC-4337 account can register actors via `importAccount()` without redeploying. See [Current Spec](/current-spec).
@@ -54,6 +54,15 @@ It lets account A register an actor pointing at account B, so any key authentica
 
 **2.9 Does authentication also decide fee logic or state-dependent policy?**
 It returns only an identity, but an authenticator may itself read state and branch; scope bits and `POLICY`-gated call managers then decide what that actor may do. See [Authenticator Model](/authenticator-model).
+
+**2.10 Can a non-admin actor originate transactions for an account?**
+Yes. A restricted actor can combine `SENDER` with `SELF_PAYER`, `SPONSOR_PAYER`, and `NONCE` grants while retaining no admin authority; forum posts #24-25 clarified this distinction.
+
+**2.11 Can account code grant or revoke actors without an admin signature?**
+No. Anyone may relay an actor-change call, but every authorization must resolve to an existing admin (`scope == 0x00`); forum post #26 asks this directly and remains unanswered on-thread.
+
+**2.12 Does `verifySignature` protect signatures from cross-account replay?**
+The canonical draft passes the supplied hash directly. Base's reference implementation PR #45 instead uses an account-scoped EIP-712 digest, an implementation hardening that is not merged EIP behavior.
 
 ---
 
@@ -150,14 +159,14 @@ At minimum: account configuration, nonce/replay state, payer configuration and b
 No. Replay protection uses a fixed-capacity circular buffer of `replay_id`s that is consensus state but ephemeral, not a permanently growing trie entry. See [Current Spec](/current-spec).
 
 **6.6 How does EIP-8130's mempool model compare to EIP-8141's?**
-EIP-8130 fixes authenticator identity and interface, while EIP-8141 fixes a validation envelope; both can execute metered EVM code, but expose different surfaces to relay policy. See [Mempool Safety](/mempool-safety).
+EIP-8130 fixes authenticator identity and interface, while EIP-8141 fixes a validation envelope and directly evaluates three common prefixes; custom paths in both models can still execute metered EVM code. See [Mempool Safety](/mempool-safety).
 
 ---
 
 ## 7. Post-Quantum and Scheme Agility
 
 **7.1 Does EIP-8130 ship a post-quantum signature scheme today?**
-No. The canonical set is k1, p256, passkey, and delegate; there is no Falcon, Dilithium, SPHINCS+, or other PQ scheme as of the July 20, 2026 research snapshot. See [PQ Scheme Agility](/pq-scheme-agility).
+No. The canonical set is k1, p256, passkey, and delegate; there is no Falcon, Dilithium, SPHINCS+, or other PQ scheme as of the July 28, 2026 research snapshot. See [PQ Scheme Agility](/pq-scheme-agility).
 
 **7.2 How would a PQ scheme get added?**
 Its contract can be deployed without a protocol change, but direct AA-transaction use requires canonical-set adoption; the draft leaves that activation and client-coordination process unspecified. See [PQ Scheme Agility](/pq-scheme-agility).
@@ -176,7 +185,7 @@ Neither current draft defines a PQ scheme: EIP-8202 currently defines secp256k1 
 ## 8. Comparison to EIP-8141 and Other Alternatives
 
 **8.1 What is EIP-8130's closest direct competitor?**
-EIP-8141 (Frame Transaction), which takes the opposite bet: arbitrary EVM inside VERIFY frames, constrained after the fact by a gas cap and banned-opcode list, versus EIP-8130's fixed authenticator identity check. See [EIP-8141](/eip-8141).
+EIP-8141 (Frame Transaction), which permits arbitrary EVM inside VERIFY frames under relay restrictions while directly evaluating three common prefixes, versus EIP-8130's fixed authenticator identity check. See [EIP-8141](/eip-8141).
 
 **8.2 Where does EIP-8130 sit on the declarative-to-programmable spectrum?**
 Between EIP-8202/EIP-XXXX's protocol-registered crypto and EIP-8175/EIP-8141's broader programmable transaction hooks: EIP-8130 uses a fixed authenticator interface that may still execute EVM code. See [Competing Standards](/competing-standards).
@@ -204,7 +213,7 @@ EIP-8141, with six (`APPROVE`, `TXPARAM`, `FRAMEDATALOAD`, `FRAMEDATACOPY`, `FRA
 ## 9. Adoption and Implementation Status
 
 **9.1 What is EIP-8130's current status?**
-Draft, Core, Standards Track, with 40 merged PRs (#11186 through #11918, Feb 28 - Jul 13, 2026) and 2 open PRs (#11578, #11919) as of July 20, 2026. See [Merged Changes](/merged-changes).
+Draft, Core, Standards Track, with 40 merged PRs (#11186 through #11918, Feb 28 - Jul 13, 2026) and 2 open PRs (#11578, #11919) as of July 28, 2026. See [Merged Changes](/merged-changes).
 
 **9.2 Is the canonical authenticator set's companion ERC finalized?**
 No. The EIP still says its number is TBD. The open ERC-8168 payer-service and ERC-8340 metadata drafts are related application-layer work, not that canonical-set companion. See [PQ Scheme Agility](/pq-scheme-agility).
@@ -226,3 +235,6 @@ Yes. [Open ERC PR #1555](https://github.com/ethereum/ERCs/pull/1555) proposes ER
 
 **9.8 Is EIP-8130 scheduled to launch anywhere?**
 Base [announced](https://x.com/buildonbase/status/2078132881017245881) Cobalt activation for September 2026 and OP Stack rollout later in the year. Vibenet is available for testing; production activation has not happened yet.
+
+**9.9 Where can builders test the current implementation?**
+Base publishes an [experimental builder guide](https://www.eip8130.com/guide), [reference contracts](https://github.com/base/eip-8130), and Vibenet. The guide says testing should remain on testnet until the audit cycle is complete.

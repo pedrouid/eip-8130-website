@@ -33,7 +33,7 @@ A comprehensive index of jargon used across this site: EIP-8130 itself, the acco
 - **authorizeActor / revokeActor** — The functions (and `ActorChange` change-types) that register or delete an actor's `actor_config` slot. Renamed from `authorizeOwner`/`revokeOwner` in PR #11764 (Jun 4, 2026).
 - **change sequence (multichain_sequence / local_sequence)** — Two independent `uint64` counters per account, packed into the account-state slot, gating replay of signed actor-change messages; `chain_id = 0` binds against `multichain_sequence`, any other value against `local_sequence`.
 - **ChangeSequences (struct)** — `{multichain, local}`, the two-counter struct returned by `getChangeSequences`.
-- **expiry (actor-level)** — A per-actor `uint48` Unix-seconds liveness bound; an actor is live only if `expiry == 0` or `block.timestamp <= expiry`. Not expressible at account-create or import time as of Jul 20, 2026 (see open PR #11919).
+- **expiry (actor-level)** — A per-actor `uint48` Unix-seconds liveness bound; an actor is live only if `expiry == 0` or `block.timestamp <= expiry`. Not expressible at account-create or import time as of Jul 28, 2026 (see open PR #11919).
 - **InitialActor (struct)** — `{actorId, authenticator, scope, policyData}`, the tuple shape used to seed actors at `createAccount` or `importAccount` time; has no `expiry` field in the merged spec.
 - **policy_commitment / policy_manager** — Two extra storage slots present only when an actor's `scope & POLICY != 0`, written verbatim from `policyData` at authorization time and read only during call execution, never during mempool validation.
 - **policyData** — The authorization-time payload for a `POLICY`-scoped actor, exactly `manager (20 bytes) || commitment (32 bytes)`.
@@ -58,21 +58,22 @@ A comprehensive index of jargon used across this site: EIP-8130 itself, the acco
 
 - **authenticate()** — The single function every `IAuthenticator` implements: `authenticate(bytes32 hash, bytes calldata data) external view returns (bytes32 actorId)`. Renamed from `verify()` in PR #11785 (Jun 9, 2026).
 - **Authenticator** — A contract implementing `IAuthenticator`, resolving a signature or credential to an `actorId`. Any such contract can be permissionlessly deployed, but only canonical authenticators authenticate transactions directly on the mempool path.
-- **Canonical Authenticator Set** — The small allowlist of authenticators (k1, p256, passkey, delegate as of Jul 20, 2026) accepted for direct transaction authentication. The draft points to a companion ERC (number TBD) for deterministic deployments, but does not yet define how clients activate membership changes. Formalized as a node-conformance baseline in PR #11647 (May 11, 2026).
+- **Canonical Authenticator Set** — The small allowlist of authenticators (k1, p256, passkey, delegate as of Jul 28, 2026) accepted for direct transaction authentication. The draft points to a companion ERC (number TBD) for deterministic deployments, but does not yet define how clients activate membership changes. Formalized as a node-conformance baseline in PR #11647 (May 11, 2026).
 - **Companion ERC (authenticator set)** — The not-yet-numbered ERC intended to define canonical deployment addresses across chains. EIP-8130 leaves its contents and the client-activation process unresolved.
 - **DELEGATE_AUTHENTICATOR** — The canonical authenticator letting one account (A) register an actor pointing at another account (B); any key authenticating as B may then authenticate as A. Nesting is capped at depth 1, and the nested actor on B must be admin.
 - **IAuthenticator** — The Solidity interface every authenticator contract implements: a single `authenticate(hash, data) -> actorId` method, called via STATICCALL.
 - **K1_AUTHENTICATOR** — The protocol-reserved sentinel `address(1)` for native secp256k1 authentication; when it appears in an auth blob, the protocol performs `ecrecover` directly instead of a STATICCALL. Renamed from `ECRECOVER_AUTHENTICATOR` in PR #11815 (Jun 18, 2026).
 - **Non-canonical authenticator** — Any `IAuthenticator` contract not in the canonical set. Permissionlessly deployable and registerable, usable inside ordinary EVM execution (e.g. a wallet-defined recovery call), but not usable to authenticate a transaction directly over the mempool path.
 - **p256 / passkey** — Two canonical authenticator entries: P-256 (secp256r1) raw signatures and WebAuthn/FIDO2 passkey signatures, both deriving `actorId = keccak256(x || y)`.
-- **verifySignature** — The ERC-1271-style boolean predicate (`verifySignature(account, hash, signature)`) used for off-chain signing (Permit-style approvals, order signatures), gated by operational authority rather than a dedicated signing scope bit.
+- **replaySafeHash** — The account- and chain-scoped EIP-712 digest Base's reference implementation uses before `verifySignature` authentication to prevent cross-account signature replay. Added in implementation PR #45; the canonical EIP still authenticates the supplied hash directly.
+- **verifySignature** — The ERC-1271-style boolean predicate (`verifySignature(account, hash, signature)`) used for off-chain signing (Permit-style approvals, order signatures), gated by operational authority rather than a dedicated signing scope bit. The canonical draft passes `hash` directly.
 
 ---
 
 ## 5. Transaction Format and Fields
 
 - **AA_PAYER_TYPE** — The magic byte (`0x7A`) prefixing the payer's signature-hash preimage, used only for domain separation from the sender's signature; not a registered EIP-2718 transaction type. Renumbered from `0x7C` in PR #11903 (Jul 8, 2026).
-- **AA_TX_TYPE** — The EIP-2718 transaction type byte for EIP-8130 AA transactions, `0x79` as of Jul 20, 2026. Assigned `0x7B` in PR #11757 (Jun 2, 2026), then renumbered to `0x79` in PR #11903 (Jul 8) to avoid an OP Stack CIP-64 collision.
+- **AA_TX_TYPE** — The EIP-2718 transaction type byte for EIP-8130 AA transactions, `0x79` as of Jul 28, 2026. Assigned `0x7B` in PR #11757 (Jun 2, 2026), then renumbered to `0x79` in PR #11903 (Jul 8) to avoid an OP Stack CIP-64 collision.
 - **account_changes** — The transaction field carrying typed entries mutating account state: create (`0x00`), config change (`0x01`), delegation (`0x02`). Unified from two separate fields (`account_initialization`, `key_changes`) in PR #11367 (Mar 3, 2026).
 - **call phase** — One atomic group of calls within `calls`; if any call in a phase reverts, that phase's state is discarded and remaining phases are skipped, but earlier committed phases persist.
 - **calls** — The transaction field carrying a two-level array of call phases (`[[call,...],[call,...]]`); calls within a phase are atomic, phases commit independently in sequence.
@@ -170,17 +171,17 @@ A comprehensive index of jargon used across this site: EIP-8130 itself, the acco
 
 ## 12. EIP-8141 (Frame Transaction) Terminology
 
-- **APPROVE (0xaa)** — EIP-8141's central new opcode; terminates the calling frame successfully and sets transaction-scoped approval flags for payment and/or execution. Execution approval authorizes every later SENDER frame, so custom validators must bind approval to the full frame list (clarified in PR #11939, Jul 17, 2026).
-- **ARBITRARY (scheme 0x0)** — An EIP-8141 outer-signature scheme performing no protocol-level crypto check; under the proposal, `SIGPARAM` exposes its raw bytes so custom verification can run inside a frame.
+- **APPROVE (0xaa)** — EIP-8141's central new opcode; terminates the calling frame successfully and sets transaction-scoped approval flags for payment and/or execution. It charges only memory expansion, with no separate base cost (PR #12003, Jul 23, 2026).
+- **ARBITRARY (scheme 0x0)** — An EIP-8141 outer-signature scheme performing no protocol-level crypto check; `SIGPARAM` exposes its raw bytes so custom verification can run inside a frame. Each entry adds 100 intrinsic gas (PR #11976, Jul 20, 2026).
 - **DEFAULT (frame mode 0)** — An EIP-8141 frame called from `ENTRY_POINT`, used for general execution and post-op logic such as sponsor refunds.
 - **DEP_VERIFY_FRAME_MODE (= 3)** — A new frame mode proposed by EIP-8141's sibling EIP-8288 to support native post-quantum signature and STARK proof aggregation at the block level.
+- **direct evaluation (EIP-8141)** — The PR #12001 fast path letting clients evaluate the default-code, expiry-verifier, and canonical-paymaster validation prefixes without tracing EVM execution, under the same gas and dependency rules.
 - **EXPIRY_VERIFIER** — The sole sanctioned path in EIP-8141 for reading `TIMESTAMP`-derived expiry inside a validation prefix: a VERIFY frame targeting `address(0x8141)` that enforces an 8-byte Unix-seconds deadline, since `TIMESTAMP` itself is a banned opcode there.
 - **frame** — EIP-8141's core structural primitive: one of up to 64 purpose-labeled sub-calls (`DEFAULT`, `VERIFY`, `SENDER`) composing a transaction, each independently gas-metered.
 - **MAX_FRAMES** — The cap on frames per EIP-8141 transaction, reduced from an original 1,000 to 64 via PR #11521 (Apr 14, 2026).
-- **MAX_SIGNATURES (proposed)** — A proposed cap of 64 entries in EIP-8141's outer signatures list, currently open in PR #11935; the merged draft has no explicit list bound.
 - **MAX_VERIFY_GAS** — The 100,000-gas cap EIP-8141 imposes on its restrictive mempool tier's validation-prefix execution.
 - **SENDER (frame mode 2)** — An EIP-8141 frame called from `tx.sender`, requiring an approval already granted by a prior VERIFY frame.
-- **signatures list** — EIP-8141's dedicated outer transaction field, a typed list of `[scheme, signer, msg, signature]` tuples (schemes `ARBITRARY`, `SECP256K1`, `P256`) built as a forward-compat hook for future PQ aggregation. PR #11937 fixed secp256k1 recovery IDs to `0`/`1` and required canonical low-s signatures.
+- **signatures list** — EIP-8141's dedicated outer transaction field, a typed list of `[scheme, signer, msg, signature]` tuples (schemes `ARBITRARY`, `SECP256K1`, `P256`) built as a forward-compat hook for future PQ aggregation. secp256k1 and P-256 now require canonical low-s signatures; the merged draft has no explicit list bound.
 - **TXPARAM / FRAMEDATALOAD / FRAMEDATACOPY / FRAMEPARAM / SIGPARAM** — The remaining five of EIP-8141's six new opcodes, reading transaction-, frame-, and signature-scoped data during frame execution; `SIGPARAM` specifically exposes the raw bytes of an `ARBITRARY`-scheme signature for custom or PQ verification logic.
 - **VERIFY (frame mode 1)** — An EIP-8141 frame dispatched with STATICCALL semantics; a frame carrying approval authority must call `APPROVE` to succeed.
 
@@ -230,8 +231,8 @@ A comprehensive index of jargon used across this site: EIP-8130 itself, the acco
 - **ERC-4337** — The widely-deployed account-abstraction standard using a `validateUserOp` entry point that executes arbitrary wallet code during validation; the paradigm case EIP-8130's motivation section critiques (without naming it) for forcing nodes to simulate arbitrary EVM. Existing ERC-4337 wallets can migrate onto EIP-8130 via `importAccount()`.
 - **ERC-7562** — The ERC-4337-derived mempool-simulation ruleset; EIP-8141 references an ERC-7562-based permissive second mempool tier for use cases exceeding its restrictive validation-prefix policy.
 - **ERC-7579** — A modular-account standard for ERC-4337 wallets; ERC-8286 requires it alongside EIP-8141.
-- **ERC-8168** — "8130 Payer Service Capability," proposed in open ERC PR #1555. It defines `payer_*` JSON-RPC methods over `paymasterService` and token-offer `paymentMode` choices; as of Jul 20 it still uses EIP-8130's superseded `PAYER` scope term and is not the canonical-authenticator-set companion ERC.
-- **ERC-8286** — "Modular Accounts for Frame Transactions" (ERC PR #1794, open as of Jul 20, 2026), an application-layer standard building modular-account composability on top of EIP-8141, contrasted in [/developer-tooling](/developer-tooling) with EIP-8130's protocol-layer canonical authenticator set.
+- **ERC-8168** — "8130 Payer Service Capability," proposed in open ERC PR #1555. It defines `payer_*` JSON-RPC methods over `paymasterService` and token-offer `paymentMode` choices; as of Jul 28 it still uses EIP-8130's superseded `PAYER` scope term and is not the canonical-authenticator-set companion ERC.
+- **ERC-8286** — "Modular Accounts for Frame Transactions" (ERC PR #1794, open as of Jul 28, 2026), an application-layer standard building modular-account composability on top of EIP-8141, contrasted in [/developer-tooling](/developer-tooling) with EIP-8130's protocol-layer canonical authenticator set.
 - **ERC-8340** — "Transaction Metadata Encoding," proposed in open draft ERC PR #1883. It defines deterministic CBOR metadata for attribution, memos, transaction/phase/call scope, and salted offchain commitments, plus an ERC-5792 wallet capability; it does not change EIP-8130 consensus rules.
 
 ---
@@ -239,9 +240,10 @@ A comprehensive index of jargon used across this site: EIP-8130 itself, the acco
 ## 18. Governance and Process Terms
 
 - **Base Cobalt** — The Base network upgrade in which Base announced it plans to activate EIP-8130 in September 2026. This is a chain rollout commitment, not Ethereum L1 inclusion or current production activation.
+- **Base reference implementation** — Base's public `base/eip-8130` contract implementation and tests. Its PRs #44 and #45 add ERC-4337 fallback execution and account-scoped signature replay protection that are not merged into the canonical EIP text.
 - **Base Vibenet** — Base's ephemeral devnet at `vibes.base.org` for testing EIP-8130 before activation.
-- **Celo CIP-64** — An existing production account-abstraction system on Celo whose migration onto EIP-8130 was discussed at length on the EthMagicians thread (posts #12-22), ultimately forcing the `AA_TX_TYPE`/`AA_PAYER_TYPE` renumbering to avoid an OP Stack transaction-type collision. See [/cross-chain-accounts](/cross-chain-accounts) and [/developer-tooling](/developer-tooling).
-- **Draft (EIP status)** — EIP-8130's current formal status as of Jul 20, 2026: not finalized as an EIP. Base's announced Cobalt rollout does not change that formal status.
+- **Celo CIP-64** — An existing production account-abstraction system on Celo whose migration onto EIP-8130 was discussed at length on the EthMagicians thread (posts #12-23), ultimately forcing the `AA_TX_TYPE`/`AA_PAYER_TYPE` renumbering to avoid an OP Stack transaction-type collision. See [/cross-chain-accounts](/cross-chain-accounts) and [/developer-tooling](/developer-tooling).
+- **Draft (EIP status)** — EIP-8130's current formal status as of Jul 28, 2026: not finalized as an EIP. Base's announced Cobalt rollout does not change that formal status.
 - **EthMagicians thread** — The community discussion forum thread for EIP-8130 (ethereum-magicians.org/t/eip-8130-account-abstraction-by-account-configurations/25952), the primary venue for design debate outside the PR review process.
 - **Hegotá (hard fork)** — The Ethereum hard-fork "Considered for Inclusion" list EIP-8141 joined via PR #11537 (merged Apr 30, 2026). EIP-8130 has no equivalent Ethereum L1 listing; Base's Cobalt plan is separate.
 - **Significant PR** — This site's own classification for a merged PR meeting size or scope thresholds (large diff, cross-cutting spec changes, opcode/constant changes) warranting a full why/what/why-it-matters treatment in [/merged-changes](/merged-changes) rather than a one-line entry.

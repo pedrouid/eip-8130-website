@@ -4,7 +4,7 @@
 
 ## TL;DR
 
-EIP-8130's developer bet is structural: replace arbitrary sender-account validation with a small canonical authenticator set, and standardize account configuration around a shared `ACCOUNT_CONFIG_ADDRESS`. That promises a predictable wallet integration surface, but makes canonical-set growth a coordination question. "No new opcodes" is also narrower than "no new protocol surface": clients would still implement a new transaction type, system contract, nonce manager, transaction-context precompile, and replay rules. Open ERC-8168 and ERC-8340 now provide concrete payer-service and metadata-encoding integration surfaces, but neither is finalized.
+EIP-8130's developer bet is structural: replace arbitrary sender-account validation with a small canonical authenticator set, and standardize account configuration around a shared `ACCOUNT_CONFIG_ADDRESS`. That promises a predictable wallet integration surface, but makes canonical-set growth a coordination question. "No new opcodes" is narrower than "no new protocol surface": clients still need a new transaction type, system contract, precompiles, and replay rules. Base now publishes a reference implementation and builder guide, while ERC-8168 and ERC-8340 remain open.
 
 ---
 
@@ -32,7 +32,7 @@ A second pillar of EIP-8130's developer pitch is architectural, not just cryptog
 - **Actor changes have a multichain signature domain**: `chainId = 0` lets the same signed message be submitted on multiple chains. It does not broadcast the change; a relayer must submit it separately to each deployment and respect each chain's sequence state.
 - **Delegate authenticators compose across accounts**, letting one signing key vouch for many accounts (`DELEGATE_AUTHENTICATOR`), which is a natural primitive for a multi-chain wallet that wants one hardware key to control the same logical identity everywhere.
 
-This is a direct pitch to wallet developers building for a multi-chain user base, where today each chain typically means a separately deployed, separately funded, separately configured smart-account instance. The `karlb` thread on Celo's CIP-64 migration (EthMagicians posts #12, #13, #15-22, June-July 2026) is the closest real-world adoption case study to date, and it is instructive precisely because it is about a **single existing chain's migration**, not a cross-chain deployment: karlb was exploring whether "allowing a chain to set a default verifier at the protocol level could make it easier to migrate from a previous account abstraction system (e.g. Celo's CIP-64) without modifying the state of all user accounts" (post #12). Two migration options were discussed in detail (posts #15-19): an RPC-shim bridge repackaging CIP-64 transactions as EIP-8130 transactions behind a `CIP64Verifier` authenticator (Option 1, chain-level default verifier, faster, but requires new node-side support), versus wallets signing native EIP-8130 transactions directly with a two-phase fee-abstraction pattern (Option 2, no default verifier needed, but "the migration would be slow since all wallets need to add support for it," per post #18). The thread resolved with a transaction-type renumbering (`0x7B`/`0x7C` to `0x79`/`0x7A`, post #22, July 8, 2026) to avoid colliding with the transaction type used for Celo's CIP-64 on the OP Stack, a concrete instance of the "canonical set as coordination bottleneck" dynamic from section 1, playing out at the transaction-type-number layer between EIP-8130's own designers and one adopting chain's engineers.
+The Celo CIP-64 thread (EthMagicians posts #12-22, June-July 2026) is the closest adoption case study. It compared an RPC shim using a chain-level default authenticator with wallets signing native EIP-8130 transactions through a two-phase fee flow. The native path avoided a default authenticator but required wallet upgrades and would be slower to roll out (post #18). The discussion forced `AA_TX_TYPE`/`AA_PAYER_TYPE` to move from `0x7B`/`0x7C` to `0x79`/`0x7A` (post #22, July 8) so EIP-8130 could coexist with Celo's existing OP Stack allocation.
 
 **Position (Bull Case)**: shared cross-chain account infrastructure is a meaningful adoption driver for multi-chain wallets, evidenced by real migration engineering interest from an existing L2/sidechain team (Celo/CIP-64), not just theoretical design goals.
 
@@ -66,7 +66,7 @@ A narrower reading of "lowers the bar" is about audit surface rather than raw im
 
 ## 4. Contrast with the Modular-Account (ERC-7579-style) Ecosystem Question
 
-EIP-8141's ecosystem is pursuing a materially different path to the same "avoid re-implementing wallet integration per app" problem: rather than defining a canonical authenticator set at the base-EIP layer, it is exploring modular-account composability at the **application (ERC) layer**, via ERC-8286 ("Modular Accounts for Frame Transactions," ERC PR #1794, still open as of July 20, 2026).
+EIP-8141's ecosystem is pursuing a materially different path to the same "avoid re-implementing wallet integration per app" problem: rather than defining a canonical authenticator set at the base-EIP layer, it is exploring modular-account composability at the **application (ERC) layer**, via ERC-8286 ("Modular Accounts for Frame Transactions," ERC PR #1794, still open as of July 28, 2026).
 
 The difference is worth stating precisely, since "canonical set" and "modular account" are easy to conflate as solving the same problem when they sit at different layers:
 
@@ -97,12 +97,16 @@ This is the clearest payer-tooling proposal found for EIP-8130, but it is not th
 
 This fills a different gap from ERC-8168. The EIP supplies a signed but semantically inert carrier; ERC-8340 gives wallets, apps, and indexers one parser. It remains a draft, so applications must treat the bytes as optional annotations with no execution effect.
 
-## 7. Base Cobalt Rollout and Benchmarks
+## 7. Base Rollout, Guide, and Reference Implementation
 
 In its July 17 [Native Account Abstraction announcement](https://x.com/buildonbase/status/2078132881017245881), Base named September 2026 for activation in Cobalt and later-2026 rollout across OP Stack chains, with [Base Vibenet](https://vibes.base.org/) as the early integration surface. Base reports 46,000 gas and 180 bytes for a native-AA USDC transfer versus 125,000 gas and 1,090 bytes through its ERC-4337 baseline; its passkey example reports 68,700 gas and 890 bytes versus 173,000 gas and 1,940 bytes. The post does not publish a benchmark harness, so these figures are a vendor claim, not an independently reproducible result.
+
+The public [builder guide](https://www.eip8130.com/guide) now covers account creation, calls, actor rotation, policies, payers, receipts, and Vibenet. Its TypeScript path is pinned to a commit in Chris Hunter's Viem fork, not a release from the upstream `wevm/viem` repository, and the guide labels the stack experimental with its audit cycle still incomplete.
+
+Base's [reference implementation](https://github.com/base/eip-8130) also exposes where portability needs application logic. PR [#44](https://github.com/base/eip-8130/pull/44) added an ERC-4337-only `executeAttested` path that moves actor authenticity and confinement into the account when the transaction-context precompile is absent. PR [#45](https://github.com/base/eip-8130/pull/45) made ERC-1271 signatures account-scoped through `replaySafeHash`. These are implementation changes, not merged EIP text.
 
 ---
 
 ## Summary
 
-EIP-8130 trades permissionless validation growth for a smaller direct-authentication surface. Cross-chain address reuse is conditional, and no-opcode design still leaves substantial client work. ERC-8168 and ERC-8340 remain open, but Base's Cobalt schedule and Vibenet make the implementation path concrete.
+EIP-8130 trades permissionless validation growth for a smaller direct-authentication surface. Cross-chain address reuse is conditional, and no-opcode design still leaves substantial client work. Base's guide, implementation, and Vibenet make the path concrete, but the SDK fork, ERCs, audit status, and Cobalt activation remain pre-production.

@@ -70,8 +70,10 @@
 |---|---|---|---|
 | 2026-02-20 | [ERC-8168 / ERC PR #1555](https://github.com/ethereum/ERCs/pull/1555) | Open | Application-layer `payer_*` RPC methods over `paymasterService`, including sponsored and token-payment offers; not the canonical-authenticator-set companion ERC, and its current text still uses the superseded `PAYER` scope term |
 | 2026-07-15 | [ERC-8340 / ERC PR #1883](https://github.com/ethereum/ERCs/pull/1883) | Open draft | Deterministic CBOR encoding for EIP-8130's opaque `metadata` field, including attribution, scope, and offchain commitments |
+| 2026-07-22 | [Base implementation PR #44](https://github.com/base/eip-8130/pull/44) | Merged | Adds an ERC-4337-compatible `executeAttested` path for chains without the transaction-context precompile; implementation only |
+| 2026-07-24 | [Base implementation PR #45](https://github.com/base/eip-8130/pull/45) | Merged | Adds an account-scoped EIP-712 digest for ERC-1271 replay protection; implementation only |
 
-The canonical authenticator set's companion ERC still has no assigned number. Separately, the Celo CIP-64 migration discussion (EthMagicians posts #12-22, June 5 - July 8, 2026) drove the `AA_TX_TYPE`/`AA_PAYER_TYPE` renumbering in #11903 to avoid a collision with Celo's OP Stack transaction type.
+The canonical authenticator set's companion ERC still has no assigned number. The Celo CIP-64 migration discussion (EthMagicians posts #12-23, June 5 - July 21, 2026) drove the `AA_TX_TYPE`/`AA_PAYER_TYPE` renumbering in #11903. Posts #24-26 then clarified that non-admin actors can initiate transactions through grants, while actor changes still require admin authorization; post #26 remains unanswered on-thread.
 
 ### Closed (not merged)
 
@@ -97,6 +99,8 @@ The canonical authenticator set's companion ERC still has no assigned number. Se
 | rmeissner | Reviewer (Safe wallet); raised the self-call-versus-entrypoint design question and Safe-compatibility considerations on the EthMagicians thread |
 | Helkomine | Community participant; argued against baking payment semantics into the transaction format, proposed a `nonceBitmap` simplification |
 | karlb | Community participant; proposed the Celo CIP-64 migration compatibility path and drove the transaction-type renumbering discussion |
+| cyrus | Community participant; prompted the forum clarification separating transaction-sender grants from admin configuration authority |
+| amiecorso | Base implementation contributor; added account-scoped ERC-1271 replay protection in implementation PR #45 |
 
 ---
 
@@ -104,6 +108,8 @@ The canonical authenticator set's companion ERC still has no assigned number. Se
 
 - [Native Account Abstraction](https://x.com/buildonbase/status/2078132881017245881)
 - [Base Vibenet](https://vibes.base.org/)
+- [EIP-8130 Builder Guide](https://www.eip8130.com/guide)
+- [Base EIP-8130 Reference Implementation](https://github.com/base/eip-8130)
 - [ERC-8340: Transaction Metadata Encoding](https://ethereum-magicians.org/t/erc-8340-transaction-metadata-encoding/29022)
 - [Frame Transactions vs. SchemedTransactions for Post-Quantum Ethereum](https://ethereum-magicians.org/t/frame-transactions-vs-schemedtransactions-for-post-quantum-ethereum/28056)
 - [EIP-8141 Demo](https://demo.eip-8141.ethrex.xyz/)
