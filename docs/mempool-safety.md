@@ -33,7 +33,7 @@ The protocol checks the returned `actorId` against the account's stored configur
 | The authenticator cannot read state or call other contracts | No. Static execution may read state and make further static calls |
 | Authentication always has a fixed gas cost | No. Fixed pricing is optional; ordinary EVM metering is also allowed |
 
-Authenticator addresses may not themselves contain an EIP-7702 delegation indicator. That removes one form of code indirection, but it does not restrict the authenticator's internal call graph.
+PR [#12148](https://github.com/ethereum/EIPs/pull/12148) removed the delegated-code check from the transaction path because canonical allowlisting already selects the accepted implementation. The allowlist still does not restrict an authenticator's internal call graph.
 
 ## 2. What a node validates
 
@@ -41,15 +41,17 @@ The draft's nine-step mempool flow includes more than a single storage read:
 
 1. Parse the transaction and bound the shape of `account_changes`.
 2. Resolve the sender, using the explicit field or native `ecrecover`.
-3. Resolve effective actor state, including any proposed create/config entries.
-4. Check Account Lock and simulate config changes when present.
+3. Resolve effective actor state from the Keystore, including any proposed create or signed-change entries.
+4. Check Account Lock and simulate ordered account changes when present.
 5. Authenticate the sender and enforce sender and nonce scope.
 6. Resolve and authenticate the payer when sponsored.
-7. Check nonce or `replay_id`, transaction expiry, actor expiry, payer balance, and fee rules.
+7. Check nonce or `replay_id`, the millisecond `valid_after`/`valid_before` window, actor expiry, payer balance, and fee rules.
 8. Apply node-configured pending-transaction limits.
 9. Apply replacement rules.
 
 The minimum state footprint varies by transaction and authenticator. It can include the packed account-state slot or `actor_config`, nonce state, payer balance, payer configuration, lock state, and any state read by a contract authenticator. Policy-manager and policy-commitment slots are not read for transaction validity; the policy gate is enforced later during call execution.
+
+PR [#12135](https://github.com/ethereum/EIPs/pull/12135) changed this surface by introducing millisecond validity windows, local epochs, typed signature envelopes, and `CONTRACT_ESTABLISHED`. These add explicit replay and identity state while making the Keystore contract authoritative for internal validation mechanics.
 
 ## 3. Canonical authenticators
 
@@ -86,7 +88,7 @@ Rate limits and minimum lock delays remain node policy. The draft gives six hour
 
 EIP-8130 can have a smaller and more predictable witness footprint than arbitrary sender-account validation, but the size is implementation-dependent:
 
-- The k1 path needs native signature verification plus account, nonce, balance, and expiry state.
+- The k1 path needs native signature verification plus Keystore, nonce, balance, validity-window, and actor-expiry state.
 - An enshrined stateless authenticator can have a similarly fixed dependency set.
 - An ordinarily metered contract authenticator requires its bytecode and every account or storage proof it reads, including downstream static calls.
 - The delegate authenticator adds nested account-configuration dependencies.
@@ -105,18 +107,22 @@ The useful claim is “known implementation and enumerable dependencies,” not 
 | State dependencies | Defined by account config and the selected authenticator | Recorded sender slots, paymaster state, and allowed validation-prefix dependencies |
 | Outside the main path | Non-canonical authenticators cannot directly authenticate AA transactions | Nonconforming frame transactions may remain consensus-valid but are not publicly relayed |
 
-Merged EIP-8141 PR #12001 permits direct evaluation, with the same gas accounting as simulation, when a validation prefix contains only protocol-defined default code, the expiry verifier, or the canonical paymaster. Common EOA and canonical-paymaster flows can therefore avoid EVM tracing, while deploy frames and custom account validation still use the generic trace rules. Open PR #12007 separately proposes replacement, eviction, and aggregate payer-exposure rules; those lifecycle rules are not yet canonical.
+Merged EIP-8141 PR #12001 permits direct evaluation when a validation prefix contains only protocol-defined default code, the expiry verifier, or the canonical paymaster. PR #12007 now defines replacement, eviction, and aggregate payer-exposure rules, while PR [#12062](https://github.com/ethereum/EIPs/pull/12062) adds a second state-gas limit and settlement dimension to each frame. This makes EIP-8141's relay accounting more explicit, but also more complex than EIP-8130's current authenticator-specific schedule.
 
 EIP-8141 also defines special handling for canonical paymasters and a limited public-mempool path for non-canonical paymasters. Earlier text on this site incorrectly described all non-canonical paymasters as private-channel only.
 
 ## 7. Open specification questions
 
-The source audit leaves several questions that should not be papered over with stronger marketing language:
+An August 4 [state-roadmap analysis](https://ethresear.ch/t/why-decentralized-state-is-important-for-ethereum/25622) argues that native account abstraction can increase witness pressure whenever validation depends on state beyond nonce and balance. Applied to EIP-8130, the canonical identity boundary narrows which code can run, but stateful authenticators and delegate resolution still add witness dependencies. This is an inference from the article's general criterion, not a claim made there about EIP-8130 specifically.
+
+Open PR [#12204](https://github.com/ethereum/EIPs/pull/12204) proposes a permissive L1 profile capped by `MAX_AUTHENTICATION_GAS` and a canonical-only L2 profile with configurable costs. It also exposes transaction context during authentication. Until merged, the current draft still lacks one universal authenticator gas cap.
+
+The source audit leaves several questions:
 
 - How is a companion-ERC change to the canonical set activated without client disagreement?
 - Are canonical authenticator runtime code hashes immutable or otherwise pinned?
 - What state-dependency rules, if any, must a canonical authenticator satisfy?
-- How should nodes meter a contract authenticator with downstream static calls?
+- If #12204 does not merge, how should nodes meter a contract authenticator with downstream static calls?
 - Does the “invalidators are `actor_config` changes and nonce consumption” security claim need to be qualified for stateful and delegated authenticators?
 
 These are specification gaps, not proof that the model is unsafe. They determine how strong its mempool and statelessness guarantees can be in an implementation.

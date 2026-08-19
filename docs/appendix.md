@@ -56,6 +56,9 @@
 | 2026-07-02 | #11847 | chunter-cb | "Clarify actor policies and simplify metadata field" |
 | 2026-07-08 | #11903 | chunter-cb | "Renumber AA transaction types and add eth_call/eth_estimateGas RPC extension" - `0x7B`/`0x7C` renumbered to `0x79`/`0x7A` |
 | 2026-07-13 | #11918 | chunter-cb | "Scope grants, PAYER split, operational ERC-1271, account lock" - largest structural rewrite since #11367 |
+| 2026-08-11 | #12135 | chunter-cb | Keystore alignment, millisecond validity window, local epochs, unified signed changes, typed signature envelopes, and expanded dependency list |
+| 2026-08-12 | #12148 | chunter-cb | Contract-audit reconciliation for self-revocation, canonical checks, and expired actor grants |
+| 2026-08-14 | #12173 | chunter-cb | Right-aligns address-derived actorIds and removes create-code validation detail from the EIP |
 
 ### Open
 
@@ -63,17 +66,21 @@
 |---|---|---|---|
 | 2026-04-29 | #11578 | pochenai | "Add opaque_input bytes field" - restores a tx-level metadata role, in tension with the shipped `metadata` field from #11805 |
 | 2026-07-13 | #11919 | chunter-cb | "Allow expiry in initial actors at create and import" - direct extension of #11918's `policyData`-at-create work |
+| 2026-08-19 | #12204 | chunter-cb | L1/L2 adoption profiles, bounded authenticator gas, transaction context during authentication, and timestamp normalization |
 
 ### Related
 
 | Date | Proposal | Status | Relationship |
 |---|---|---|---|
-| 2026-02-20 | [ERC-8168 / ERC PR #1555](https://github.com/ethereum/ERCs/pull/1555) | Open | Application-layer `payer_*` RPC methods over `paymasterService`, including sponsored and token-payment offers; not the canonical-authenticator-set companion ERC, and its current text still uses the superseded `PAYER` scope term |
+| 2026-02-20 | [ERC-8168 / ERC PR #1555](https://github.com/ethereum/ERCs/pull/1555) | Open | Application-layer payer RPC; August updates aligned the validity window and require each offer to support send, sign, or both methods |
 | 2026-07-15 | [ERC-8340 / ERC PR #1883](https://github.com/ethereum/ERCs/pull/1883) | Open draft | Deterministic CBOR encoding for EIP-8130's opaque `metadata` field, including attribution, scope, and offchain commitments |
 | 2026-07-22 | [Base implementation PR #44](https://github.com/base/eip-8130/pull/44) | Merged | Adds an ERC-4337-compatible `executeAttested` path for chains without the transaction-context precompile; implementation only |
 | 2026-07-24 | [Base implementation PR #45](https://github.com/base/eip-8130/pull/45) | Merged | Adds an account-scoped EIP-712 digest for ERC-1271 replay protection; implementation only |
+| 2026-08-06 | [Base implementation PR #46](https://github.com/base/eip-8130/pull/46), [#55](https://github.com/base/eip-8130/pull/55) | Merged | Research alignment, widened scope, and revised Keystore packing |
+| 2026-08-07 | [Base implementation PR #63](https://github.com/base/eip-8130/pull/63), [#64](https://github.com/base/eip-8130/pull/64) | Merged | Typed signature envelopes and local-epoch sequencing |
+| 2026-08-10 – 2026-08-18 | [Base implementation PR #76](https://github.com/base/eip-8130/pull/76), [#79](https://github.com/base/eip-8130/pull/79), [#82](https://github.com/base/eip-8130/pull/82) | Merged | Established-contract flag, expired-grant behavior, and final contract-review pass |
 
-The canonical authenticator set's companion ERC still has no assigned number. The Celo CIP-64 migration discussion (EthMagicians posts #12-23, June 5 - July 21, 2026) drove the `AA_TX_TYPE`/`AA_PAYER_TYPE` renumbering in #11903. Posts #24-26 then clarified that non-admin actors can initiate transactions through grants, while actor changes still require admin authorization; post #26 remains unanswered on-thread.
+The canonical authenticator set's companion ERC still has no assigned number. The Celo CIP-64 discussion (posts #12-23) drove the transaction-type renumbering. Posts #24-26 explored non-admin initiation and actor management. Post #27 (July 30) proposes a permissionless public `POLICY` actor and remains unanswered.
 
 ### Closed (not merged)
 
@@ -86,6 +93,8 @@ The canonical authenticator set's companion ERC still has no assigned number. Th
 | #11655 | 2026-05-12 -> 2026-06-15 | chunter-cb | Discussion-only draft marked "DO NOT MERGE"; superseded by the shipped `metadata` field design in #11805 |
 | #11751 | 2026-06-01 -> 2026-06-18 | chunter-cb | Draft-only proposal for delegated account creation at create time; no successor merged as of research date |
 | #11758 | 2026-06-02 -> 2026-06-04 | chunter-cb | Partially superseded and partially reversed by #11764, which kept the interface renames but dropped the proposed getter removals |
+| #12185 | 2026-08-18 -> 2026-08-19 | chunter-cb | First adoption-profile and bounded-authentication-gas draft, superseded by #12204 |
+| #12192 | 2026-08-18 -> 2026-08-19 | chunter-cb | Follow-up transaction-context and timestamp draft, superseded by #12204 |
 
 ---
 
@@ -107,12 +116,14 @@ The canonical authenticator set's companion ERC still has no assigned number. Th
 ## External Resources
 
 - [Native Account Abstraction](https://x.com/buildonbase/status/2078132881017245881)
+- [Base Cobalt Upgrade](https://chain.base.org/upgrades/upgrade/cobalt)
 - [Base Vibenet](https://vibes.base.org/)
 - [EIP-8130 Builder Guide](https://www.eip8130.com/guide)
 - [Base EIP-8130 Reference Implementation](https://github.com/base/eip-8130)
 - [ERC-8340: Transaction Metadata Encoding](https://ethereum-magicians.org/t/erc-8340-transaction-metadata-encoding/29022)
 - [Frame Transactions vs. SchemedTransactions for Post-Quantum Ethereum](https://ethereum-magicians.org/t/frame-transactions-vs-schemedtransactions-for-post-quantum-ethereum/28056)
 - [EIP-8141 Demo](https://demo.eip-8141.ethrex.xyz/)
+- [Why Decentralized State is Important for Ethereum](https://ethresear.ch/t/why-decentralized-state-is-important-for-ethereum/25622)
 
 ---
 

@@ -16,13 +16,16 @@ Chris Hunter, first floated on EthMagicians October 24, 2025 (post #1), formally
 It lets a node decide whether to accept a transaction by checking the identity of the declared authenticator contract against a small canonical allowlist, rather than simulating arbitrary account bytecode to determine validity.
 
 **1.4 What does EIP-8130 require in its frontmatter?**
-`requires: 170, 2718` as of the current spec; the original submission required `1153, 2718`, and `7702` was briefly required (PR #11367) then dropped (PR #11492). See [Original vs Latest](/original-vs-latest).
+EIPs 155, 170, 712, 1271, 1559, 2028, 2718, 2929, 4337, 6780, 7702, 7708, and 7819, expanded in PR #12135. See [Original vs Latest](/original-vs-latest).
 
 **1.5 How mature is the spec?**
-40 merged PRs against the spec file as of July 28, 2026, but it remains a Draft with no Ethereum L1 activation scheduled. Base separately announced Cobalt activation for September 2026. See [Merged Changes](/merged-changes).
+43 merged PRs as of August 20, 2026, but it remains a Draft with no Ethereum L1 activation scheduled. Base Cobalt lists Sepolia and mainnet in planning for September. See [Merged Changes](/merged-changes).
 
 **1.6 Does EIP-8130 replace ERC-4337?**
 No. The spec frames coexistence, not replacement: an already-deployed ERC-4337 account can register actors via `importAccount()` without redeploying. See [Current Spec](/current-spec).
+
+**1.7 What is the Keystore?**
+The system contract formerly called Account Configuration; PR #12135 renamed it and made Base's canonical contracts authoritative for detailed storage and function mechanics. See [Current Spec](/current-spec).
 
 ---
 
@@ -61,8 +64,14 @@ Yes. A restricted actor can combine `SENDER` with `SELF_PAYER`, `SPONSOR_PAYER`,
 **2.11 Can account code grant or revoke actors without an admin signature?**
 No. Anyone may relay an actor-change call, but every authorization must resolve to an existing admin (`scope == 0x00`); forum post #26 asks this directly and remains unanswered on-thread.
 
-**2.12 Does `verifySignature` protect signatures from cross-account replay?**
-The canonical draft passes the supplied hash directly. Base's reference implementation PR #45 instead uses an account-scoped EIP-712 digest, an implementation hardening that is not merged EIP behavior.
+**2.12 Does `validateSignature` protect signatures from cross-account replay?**
+Yes. PR #12135 made `validateSignature` use a typed local or multichain envelope and an account- and chain-scoped `replaySafeHash`; ERC-1271 wraps that path.
+
+**2.13 How are address-derived actorIds encoded?**
+Right-aligned in the low 20 bytes as `bytes32(uint256(uint160(address)))`, standardized by PR #12173 for k1, self, and delegate actors.
+
+**2.14 Can anyone originate a policy-confined transaction without registration?**
+Not in the merged EIP. Forum post #27 proposes a public `POLICY` actor for permissionless actions, but the question remains unanswered and every native actor still authenticates through the Keystore.
 
 ---
 
@@ -95,18 +104,21 @@ An opaque, signed transaction field restoring the tx-level annotation role legac
 **3.9 Is ERC-8340 part of EIP-8130 consensus?**
 No. [Open ERC PR #1883](https://github.com/ethereum/ERCs/pull/1883) proposes an application-layer encoding for attribution, memos, scope, and offchain commitments; the protocol still treats `metadata` as opaque bytes.
 
+**3.10 How is transaction validity expressed?**
+With `uint64 valid_after` and `valid_before` Unix timestamps in milliseconds. Open PR #12204 proposes also accepting seconds, but that is not merged behavior.
+
 ---
 
 ## 4. Nonces and Account Lock
 
 **4.1 What nonce modes does EIP-8130 support?**
-Standard sequential (`nonce_key = 0`), parallel user-defined channels (`1` to `NONCE_KEY_MAX - 1`), and nonce-free (`NONCE_KEY_MAX`), which skips nonce reads and relies on `expiry` plus `replay_id` dedup. See [Current Spec](/current-spec).
+Standard sequential, parallel user-defined channels, and nonce-free (`NONCE_KEY_MAX`), which skips nonce reads and relies on finite `valid_before` plus `replay_id` dedup. See [Current Spec](/current-spec).
 
 **4.2 What is `replay_id`?**
 A signature-invariant dedup identifier for nonce-free transactions, deliberately excluding fee fields and auth blobs so a fee-bumped or re-signed retransmission of the same logical transaction collapses to one mempool slot. Introduced in PR #11752 (Jun 2). See [Current Spec](/current-spec).
 
 **4.3 What is Account Lock?**
-A mechanism, introduced in PR #11367 (Mar 3), that lets an account freeze its own actor configuration; while `LOCKED`, all config-change and delegation entries are rejected. See [Mempool Safety](/mempool-safety).
+A mechanism that freezes authority changes and delegation; only Unlock and IncrementLocalEpoch remain permitted while locked. See [Mempool Safety](/mempool-safety).
 
 **4.4 Why would a wallet lock its own account?**
 A lock removes actor-configuration invalidation and can justify a higher rate tier when the authenticator is also stateless; stateful or delegated authentication can retain other dependencies. See [Mempool Safety](/mempool-safety).
@@ -120,6 +132,9 @@ Yes, a `uint48 expiry` per actor, added alongside actor call policies in PR #117
 **4.7 Can expiry be set at account creation or import time?**
 Not yet in the merged spec. PR #11919 (opened Jul 13, still open) proposes adding it, committed into the per-actor address-derivation preimage so a front-runner can't alter it. See [Merged Changes](/merged-changes).
 
+**4.8 What are local epochs and `UNSEQUENCED` changes?**
+PR #12135 split local state into `local_epoch` and `local_sequence`; unsequenced changes can land in any order within an epoch, then `IncrementLocalEpoch` invalidates the rest.
+
 ---
 
 ## 5. Cross-Chain Accounts
@@ -131,7 +146,7 @@ With identical deployment inputs and infrastructure, CREATE2 can reproduce the a
 No, by design. Community contributor pochenai flagged the lack of expiry (closed PR #11612); chunter-cb rejected the fix as intentional, since multi-chain changes are meant for full owners while a per-chain local change "give[s] an instant expiration when applied." See [Cross-Chain Accounts](/cross-chain-accounts).
 
 **5.3 Does Account Lock apply across all chains at once?**
-No, `applySignedLockChanges` operates on the local channel only, so a `chain_id = 0` config update can succeed everywhere except a chain where the account happens to be separately locked. See [Cross-Chain Accounts](/cross-chain-accounts).
+No. Lock and Unlock are operations in `applySignedAccountChanges`, but only on the local channel, so a multichain update can fail on one separately locked deployment. See [Cross-Chain Accounts](/cross-chain-accounts).
 
 **5.4 Do any of the other alternatives covered on this site offer comparable cross-chain portability?**
 No; the sourced material for EIP-8141, EIP-8175, EIP-8202, EIP-8223, and EIP-8224 describes no comparable account-portability mechanism. See [Cross-Chain Accounts](/cross-chain-accounts).
@@ -166,7 +181,7 @@ EIP-8130 fixes authenticator identity and interface, while EIP-8141 fixes a vali
 ## 7. Post-Quantum and Scheme Agility
 
 **7.1 Does EIP-8130 ship a post-quantum signature scheme today?**
-No. The canonical set is k1, p256, passkey, and delegate; there is no Falcon, Dilithium, SPHINCS+, or other PQ scheme as of the July 28, 2026 research snapshot. See [PQ Scheme Agility](/pq-scheme-agility).
+No. The canonical set is k1, p256, passkey, and delegate; there is no Falcon, Dilithium, SPHINCS+, or other PQ scheme as of August 20, 2026. See [PQ Scheme Agility](/pq-scheme-agility).
 
 **7.2 How would a PQ scheme get added?**
 Its contract can be deployed without a protocol change, but direct AA-transaction use requires canonical-set adoption; the draft leaves that activation and client-coordination process unspecified. See [PQ Scheme Agility](/pq-scheme-agility).
@@ -206,14 +221,14 @@ EIP-XXXX shares three of EIP-8130's cryptographic primitives (secp256k1, P-256, 
 No. A full-text search of the spec turns up no mention of EIP-8141 or the other proposals; all comparisons on this site are editorial analysis built on the sourced material for each proposal. See [Competing Standards](/competing-standards).
 
 **8.8 Which proposal adds the most new EVM opcodes?**
-EIP-8141, with six (`APPROVE`, `TXPARAM`, `FRAMEDATALOAD`, `FRAMEDATACOPY`, `FRAMEPARAM`, `SIGPARAM`); EIP-8130 adds zero opcodes, relying on precompiles and a system contract instead. See [Developer Tooling](/developer-tooling).
+EIP-8141, with seven after `SIGDATACOPY` joined `APPROVE`, `TXPARAM`, frame-data, frame-parameter, and signature-parameter operations; EIP-8130 adds zero. See [Developer Tooling](/developer-tooling).
 
 ---
 
 ## 9. Adoption and Implementation Status
 
 **9.1 What is EIP-8130's current status?**
-Draft, Core, Standards Track, with 40 merged PRs (#11186 through #11918, Feb 28 - Jul 13, 2026) and 2 open PRs (#11578, #11919) as of July 28, 2026. See [Merged Changes](/merged-changes).
+Draft, Core, Standards Track, with 43 merged PRs through #12173 and 3 open PRs as of August 20, 2026. See [Merged Changes](/merged-changes).
 
 **9.2 Is the canonical authenticator set's companion ERC finalized?**
 No. The EIP still says its number is TBD. The open ERC-8168 payer-service and ERC-8340 metadata drafts are related application-layer work, not that canonical-set companion. See [PQ Scheme Agility](/pq-scheme-agility).
@@ -224,17 +239,17 @@ Yes. The Celo CIP-64 migration discussion forced a transaction-type renumbering 
 **9.4 Has EIP-8130 been added to a hard-fork "Considered for Inclusion" list?**
 Not for Ethereum L1. Base has separately announced EIP-8130 for its Cobalt upgrade in September 2026 and OP Stack rollout later in the year. See [Feedback Evolution](/feedback-evolution).
 
-**9.5 What are the two currently open PRs?**
-#11578 (pochenai's `opaque_input` field, superseded in spirit by the shipped `metadata` field but not formally reconciled) and #11919 (chunter-cb's expiry-at-create/import proposal). See [Merged Changes](/merged-changes).
+**9.5 What are the three currently open PRs?**
+#11578 (`opaque_input`), #11919 (expiry at create/import), and #12204 (adoption profiles, bounded authenticator gas, transaction context, and timestamp normalization). See [Merged Changes](/merged-changes).
 
 **9.6 What is the largest structural rewrite in the spec's history?**
-PR #11918 (Jul 13, +277/-153), which redefined admin as a predicate, split the PAYER bit into `SELF_PAYER`/`SPONSOR_PAYER`, removed the SIGNER bit, and simplified Account Lock's lifecycle, larger than even the original account-changes unification in PR #11367. See [Merged Changes](/merged-changes).
+PR #12135 (Aug 11, +214/-312), which aligned the EIP with the Keystore, validity windows, local epochs, unified signed changes, and typed signature envelopes. See [Merged Changes](/merged-changes).
 
 **9.7 Is there an application-layer RPC proposal for EIP-8130 payers?**
-Yes. [Open ERC PR #1555](https://github.com/ethereum/ERCs/pull/1555) proposes ERC-8168 and `payer_*` RPC methods, including sponsored and token-payment offers. It still uses the pre-#11918 `PAYER` term, so its terminology is not aligned with the current scope split.
+Yes. [Open ERC PR #1555](https://github.com/ethereum/ERCs/pull/1555) proposes ERC-8168. Offers must support `payer_sendTransaction`, `payer_signTransaction`, or both; its August update also aligned the validity-window fields.
 
 **9.8 Is EIP-8130 scheduled to launch anywhere?**
-Base [announced](https://x.com/buildonbase/status/2078132881017245881) Cobalt activation for September 2026 and OP Stack rollout later in the year. Vibenet is available for testing; production activation has not happened yet.
+Base's [Cobalt page](https://chain.base.org/upgrades/upgrade/cobalt) lists Sepolia and mainnet in planning for September 2026. Vibenet is available for testing; production activation has not happened.
 
 **9.9 Where can builders test the current implementation?**
-Base publishes an [experimental builder guide](https://www.eip8130.com/guide), [reference contracts](https://github.com/base/eip-8130), and Vibenet. The guide says testing should remain on testnet until the audit cycle is complete.
+Base publishes an [experimental builder guide](https://www.eip8130.com/guide), [reference contracts](https://github.com/base/eip-8130), and Vibenet. The guide now uses upstream `viem/experimental/eip8130` and says the audit is incomplete.

@@ -8,44 +8,46 @@ A comprehensive index of jargon used across this site: EIP-8130 itself, the acco
 
 - **Account Abstraction (AA)** — The general goal of decoupling transaction validation and payment from a fixed secp256k1-EOA model, letting session keys, multisig logic, or sponsorship govern who may act on an account. EIP-8130 pursues this via a canonical authenticator allowlist rather than arbitrary wallet-code execution; see [/competing-standards](/competing-standards) for how the alternative proposals position themselves on this axis.
 - **Actor** — Any authority-holder on an EIP-8130 account: a full owner, a session key, a payer-only key. Actors are identified by a 32-byte `actorId` and governed by a `scope` bitmask stored in `actor_config`.
-- **actorId** — A 32-byte identifier an authenticator derives from public key material (not necessarily an address) naming a specific actor on an account. Renamed from `keyId` (PR #11380, "ownerId") to `actorId` in PR #11764 (Jun 4, 2026).
+- **actorId** — A 32-byte identifier an authenticator derives from credential material. Address-derived values are right-aligned in the low 20 bytes, standardized by PR #12173.
 - **Authentication** — The step of resolving a signature or credential to an `actorId`, performed by an authenticator contract's `authenticate()` call or, for `K1_AUTHENTICATOR`, a native `ecrecover`. Deliberately separated from authorization; see [/authenticator-model](/authenticator-model).
 - **Authorization** — The step of checking what an already-authenticated actor may do, governed by its `scope` bitmask and, if `POLICY` is set, its policy manager.
-- **Mempool Validation Algorithm** — The nine-step sequence a node runs to decide whether to accept an EIP-8130 transaction into its mempool: parsing `sender_auth`, resolving `sender`, determining actor state, simulating pending config changes, validating `sender_auth`, resolving the payer, checking nonce/expiry, checking payer rate limits, and applying replacement rules. See [/current-spec](/current-spec) and [/mempool-safety](/mempool-safety).
+- **Mempool Validation Algorithm** — The staged checks a node runs before accepting an EIP-8130 transaction: parsing, sender and Keystore resolution, ordered account-change simulation, canonical authentication, scope and validity checks, payer checks, rate limits, and replacement. See [/current-spec](/current-spec).
 - **No Wallet Code Execution** — EIP-8130's core mempool-safety claim: a node accepts a transaction by checking authenticator *identity* against a canonical allowlist rather than simulating the sender's own arbitrary account bytecode. See [/mempool-safety](/mempool-safety) for the argument and its contrast with EIP-8141.
 - **Operational Authority** — The predicate governing ERC-1271 signing, defined as `admin || (SENDER && !POLICY)`. Introduced in PR #11918 (Jul 13, 2026), replacing a standalone SIGNER scope bit; a POLICY-gated actor is never operational and must not sign raw hashes.
+- **Statelessness / Witness Cost** — The state a stateless client must prove to validate a transaction. EIP-8130 narrows the code surface by canonical identity, but Keystore, nonce, payer, and authenticator state may all contribute. See [/mempool-safety](/mempool-safety) §5.
 - **STATICCALL** — The EVM call type used to invoke an authenticator's `authenticate()` function; it cannot write storage, emit events, or otherwise change chain state, keeping authentication read-only and auditable.
-- **Statelessness / Witness Cost** — Shorthand for the state a stateless client must prove to validate a transaction. EIP-8130's validation footprint is narrow (one `actor_config` slot, nonce state, payer balance), excluding policy-gate state from the pre-inclusion witness set; see [/mempool-safety](/mempool-safety) §5.
 - **VOPS (Validity-Only Partial Statelessness)** — A statelessness design under which a node validates transactions using only a bounded witness rather than full state. EIP-8223's static payer-registry model is strictly VOPS-compatible, needing only the `0x13` predeploy's storage trie as additional witness data.
 
 ---
 
-## 2. Account Configuration and Actors
+## 2. Keystore and Actors
 
-- **ACCOUNT_CONFIG_ADDRESS** — The CREATE2-derived address of the Account Configuration Contract, the single point of actor authorization, account creation, and change sequencing for every EIP-8130 account.
-- **Account Configuration Contract** — The system contract at `ACCOUNT_CONFIG_ADDRESS` that stores each account's actors, processes `account_changes`, and enforces Account Lock. See [/current-spec](/current-spec).
-- **actor_config** — The per-actor storage slot on an account, holding `authenticator` (bytes 0-19), `scope` (byte 20), `expiry` (`uint48`, bytes 21-26), and reserved bytes 27-31. Actors are revoked by deleting this slot, except the self-actor.
-- **ActorChange (struct)** — `{changeType, actorId, data}`, an entry inside a signed config-change message; `changeType` is `0x01` (`authorizeActor`) or `0x02` (`revokeActor`).
-- **ActorConfig (struct)** — `{authenticator, scope, expiry}`, the typed shape of an `actor_config` slot's payload, used in signature typehashes (`ACTORCONFIG_TYPEHASH`).
+- **ACCOUNT_CONFIG_ADDRESS** — The former name of `KEYSTORE_ADDRESS`, replaced in PR #12135.
+- **Account Configuration Contract** — The former name of the Keystore, replaced in PR #12135.
+- **actor_config** — A packed actor word: `authenticator (20) || expiry (6) || scope (2) || reserved (4)`. Scope is `uint16`; revocation deletes the slot except for special self-actor handling.
 - **Actor Policies** — The `POLICY`-scope mechanism gating a restricted actor to calling a single designated `policy_manager` contract, enforced during call execution rather than mempool validation. Landed in PR #11766 (Jun 4, 2026), after an earlier unmergeable draft (PR #11648).
 - **admin** — The predicate `scope == 0x00` (no grant bits set), required for every config-change authorization. Redefined from a dedicated CONFIG bit to this absence-of-restriction predicate in PR #11918 (Jul 13, 2026), on the reasoning that a config-only bit is indistinguishable from full access.
-- **applySignedActorChanges** — The entry point applying a signed batch of `ActorChange` entries against either the local (`chain_id == block.chainid`) or multichain (`chain_id == 0`) change-sequence channel. See [/cross-chain-accounts](/cross-chain-accounts).
-- **authorizeActor / revokeActor** — The functions (and `ActorChange` change-types) that register or delete an actor's `actor_config` slot. Renamed from `authorizeOwner`/`revokeOwner` in PR #11764 (Jun 4, 2026).
-- **change sequence (multichain_sequence / local_sequence)** — Two independent `uint64` counters per account, packed into the account-state slot, gating replay of signed actor-change messages; `chain_id = 0` binds against `multichain_sequence`, any other value against `local_sequence`.
-- **ChangeSequences (struct)** — `{multichain, local}`, the two-counter struct returned by `getChangeSequences`.
-- **expiry (actor-level)** — A per-actor `uint48` Unix-seconds liveness bound; an actor is live only if `expiry == 0` or `block.timestamp <= expiry`. Not expressible at account-create or import time as of Jul 28, 2026 (see open PR #11919).
+- **applySignedAccountChanges** — The Keystore entry point applying signed AuthorizeActor, RevokeActor, IncrementLocalEpoch, Lock, and Unlock operations on local or multichain channels. Replaced `applySignedActorChanges` and the separate lock path in PR #12135.
+- **change sequence** — A `uint64 multichain_sequence` plus packed `uint32 local_epoch` and `uint32 local_sequence`, gating replay of signed Keystore changes.
+- **CONTRACT_ESTABLISHED (flag)** — Records that an address has been established as a contract account, preventing later code removal from re-enabling implicit-EOA treatment.
+- **expiry (actor-level)** — A per-actor `uint48` Unix-seconds liveness bound. It is still not expressible at create/import time as of August 20; see open PR #11919.
+- **IncrementLocalEpoch** — A signed local change that advances `local_epoch` and invalidates unlanded local signatures from the old epoch.
 - **InitialActor (struct)** — `{actorId, authenticator, scope, policyData}`, the tuple shape used to seed actors at `createAccount` or `importAccount` time; has no `expiry` field in the merged spec.
+- **Keystore** — The system contract at `KEYSTORE_ADDRESS` storing actors, account state, change channels, creation, and locks. PR #12135 renamed it and made the Base contracts authoritative for internal mechanics.
+- **KEYSTORE_ADDRESS** — The Keystore address used in account derivation and actor-management operations, formerly `ACCOUNT_CONFIG_ADDRESS`.
+- **local_epoch / local_sequence** — Two `uint32` local-channel fields packed into one signed `uint64`; the epoch enables bulk invalidation of `UNSEQUENCED` changes.
 - **policy_commitment / policy_manager** — Two extra storage slots present only when an actor's `scope & POLICY != 0`, written verbatim from `policyData` at authorization time and read only during call execution, never during mempool validation.
 - **policyData** — The authorization-time payload for a `POLICY`-scoped actor, exactly `manager (20 bytes) || commitment (32 bytes)`.
-- **reserved bits (actor_config)** — Bytes 27-31 of the `actor_config` slot, which MUST be zero on write; a nonzero value acts as an implicit version discriminator so new-format configs fail closed on legacy deployments.
-- **scope (byte)** — The per-actor permission bitmask; `0x00` denotes admin (unrestricted), and any set bit denotes a specific grant (`SENDER`, `POLICY`, `NONCE`, `SELF_PAYER`, `SPONSOR_PAYER`). Redefined from a flat SIGNATURE/SENDER/PAYER/CONFIG model to the current five-grant model in PR #11918 (Jul 13, 2026).
-- **Self-actor** — The implicit actor at `actorId == bytes32(bytes20(account))`, representing the account's own key. Has two mutually exclusive forms: an inline secp256k1 self held in the packed account-state slot, or a non-secp256k1 self authenticator held in the ordinary `actor_config` slot.
+- **reserved bits (actor_config)** — The final four bytes of `actor_config`, which must be zero on write so future layouts fail closed.
+- **scope (`uint16`)** — The per-actor grant mask. Zero denotes admin; bits 0-4 are SENDER, POLICY, NONCE, SELF_PAYER, and SPONSOR_PAYER, while 5-15 are spare.
+- **Self-actor** — The actor whose `actorId` is the account address right-aligned in 32 bytes. It has inline secp256k1 and ordinary configured-authenticator forms.
+- **UNSEQUENCED** — A local signed-change mode that may land in any order within the current epoch and is invalidated by `IncrementLocalEpoch`.
 
 ---
 
 ## 3. Scope Grants and Authorization
 
-- **ERC-1271** — The standard `isValidSignature(hash, signature)` interface EIP-8130 uses both as a migration fallback for already-deployed contract accounts (`importAccount`) and as the off-chain-signing predicate (`verifySignature`), gated by operational authority.
+- **ERC-1271** — The `isValidSignature(hash, signature)` standard used for import authorization and as a compatibility wrapper around EIP-8130's account-scoped `validateSignature` path.
 - **NONCE (grant, 0x04)** — Permits a restricted actor to use non-nonceless `nonce_key`s; without it, a restricted actor may only use `NONCE_KEY_MAX` (nonceless).
 - **POLICY (grant, 0x02)** — Gates initiation as `sender_auth` to calls targeting only the actor's `policy_manager`. Composes with SENDER (POLICY always gates regardless).
 - **SELF_PAYER (grant, 0x08)** — Permits self-pay when `payer == sender`, including via a dedicated gas key distinct from the signing key. Split from a single PAYER bit in PR #11918 (Jul 13, 2026).
@@ -57,23 +59,24 @@ A comprehensive index of jargon used across this site: EIP-8130 itself, the acco
 ## 4. Authenticators and Signing
 
 - **authenticate()** — The single function every `IAuthenticator` implements: `authenticate(bytes32 hash, bytes calldata data) external view returns (bytes32 actorId)`. Renamed from `verify()` in PR #11785 (Jun 9, 2026).
+- **authenticateActor** — The raw Keystore authentication primitive. It resolves an actor from `hash` and `auth` without account or chain domain separation.
 - **Authenticator** — A contract implementing `IAuthenticator`, resolving a signature or credential to an `actorId`. Any such contract can be permissionlessly deployed, but only canonical authenticators authenticate transactions directly on the mempool path.
-- **Canonical Authenticator Set** — The small allowlist of authenticators (k1, p256, passkey, delegate as of Jul 28, 2026) accepted for direct transaction authentication. The draft points to a companion ERC (number TBD) for deterministic deployments, but does not yet define how clients activate membership changes. Formalized as a node-conformance baseline in PR #11647 (May 11, 2026).
+- **Canonical Authenticator Set** — The k1, p256, passkey, and delegate allowlist accepted for direct transaction authentication as of August 20. The companion ERC and client activation process remain undefined.
 - **Companion ERC (authenticator set)** — The not-yet-numbered ERC intended to define canonical deployment addresses across chains. EIP-8130 leaves its contents and the client-activation process unresolved.
 - **DELEGATE_AUTHENTICATOR** — The canonical authenticator letting one account (A) register an actor pointing at another account (B); any key authenticating as B may then authenticate as A. Nesting is capped at depth 1, and the nested actor on B must be admin.
 - **IAuthenticator** — The Solidity interface every authenticator contract implements: a single `authenticate(hash, data) -> actorId` method, called via STATICCALL.
 - **K1_AUTHENTICATOR** — The protocol-reserved sentinel `address(1)` for native secp256k1 authentication; when it appears in an auth blob, the protocol performs `ecrecover` directly instead of a STATICCALL. Renamed from `ECRECOVER_AUTHENTICATOR` in PR #11815 (Jun 18, 2026).
 - **Non-canonical authenticator** — Any `IAuthenticator` contract not in the canonical set. Permissionlessly deployable and registerable, usable inside ordinary EVM execution (e.g. a wallet-defined recovery call), but not usable to authenticate a transaction directly over the mempool path.
 - **p256 / passkey** — Two canonical authenticator entries: P-256 (secp256r1) raw signatures and WebAuthn/FIDO2 passkey signatures, both deriving `actorId = keccak256(x || y)`.
-- **replaySafeHash** — The account- and chain-scoped EIP-712 digest Base's reference implementation uses before `verifySignature` authentication to prevent cross-account signature replay. Added in implementation PR #45; the canonical EIP still authenticates the supplied hash directly.
-- **verifySignature** — The ERC-1271-style boolean predicate (`verifySignature(account, hash, signature)`) used for off-chain signing (Permit-style approvals, order signatures), gated by operational authority rather than a dedicated signing scope bit. The canonical draft passes `hash` directly.
+- **replaySafeHash** — The account- and chain-scoped digest used by `validateSignature` to prevent cross-account signature replay. First prototyped in Base PR #45 and made canonical in evolved form by EIP PR #12135.
+- **validateSignature** — The Keystore's account-aware signature path. It consumes a `Local (0x01)` or `Multichain (0x02)` envelope, authenticates `replaySafeHash`, and returns actor scope.
 
 ---
 
 ## 5. Transaction Format and Fields
 
 - **AA_PAYER_TYPE** — The magic byte (`0x7A`) prefixing the payer's signature-hash preimage, used only for domain separation from the sender's signature; not a registered EIP-2718 transaction type. Renumbered from `0x7C` in PR #11903 (Jul 8, 2026).
-- **AA_TX_TYPE** — The EIP-2718 transaction type byte for EIP-8130 AA transactions, `0x79` as of Jul 28, 2026. Assigned `0x7B` in PR #11757 (Jun 2, 2026), then renumbered to `0x79` in PR #11903 (Jul 8) to avoid an OP Stack CIP-64 collision.
+- **AA_TX_TYPE** — The EIP-2718 transaction type byte for EIP-8130 transactions, `0x79`. It was renumbered from `0x7B` in PR #11903 to avoid a CIP-64 collision.
 - **account_changes** — The transaction field carrying typed entries mutating account state: create (`0x00`), config change (`0x01`), delegation (`0x02`). Unified from two separate fields (`account_initialization`, `key_changes`) in PR #11367 (Mar 3, 2026).
 - **call phase** — One atomic group of calls within `calls`; if any call in a phase reverts, that phase's state is discarded and remaining phases are skipped, but earlier committed phases persist.
 - **calls** — The transaction field carrying a two-level array of call phases (`[[call,...],[call,...]]`); calls within a phase are atomic, phases commit independently in sequence.
@@ -82,18 +85,19 @@ A comprehensive index of jargon used across this site: EIP-8130 itself, the acco
 - **payer / payer_auth** — See Gas Sponsorship and Payer Model below.
 - **REPLAY_ID_TYPE** — The magic prefix (`0x7901`) domain-separating the `replay_id` hash used for nonce-free-mode deduplication.
 - **sender / sender_auth** — `sender` is the sending account address (empty for an EOA signature, in which case it is recovered via ecrecover); `sender_auth` is the raw ECDSA signature or `authenticator || data` blob authenticating it. `sender` was renamed from `from` in PR #11526 (May 11, 2026).
+- **valid_after / valid_before** — The EIP-8130 transaction validity window, expressed as `uint64` Unix milliseconds. Nonce-free mode requires a finite `valid_before`.
 
 ---
 
 ## 6. Nonces and Replay Protection
 
 - **Mempool replacement** — The rule that a replacement transaction must raise `max_priority_fee_per_gas` by at least the node's minimum bump and be independently fully valid; standard/2D replacements share `(sender, nonce_key, nonce_sequence)`, nonce-free replacements share `(sender, replay_id)`.
-- **nonce_key / nonce_sequence** — The packed two-dimensional nonce fields: `nonce_key` selects a channel (`0` standard, `1..NONCE_KEY_MAX-1` parallel, `NONCE_KEY_MAX` nonce-free), `nonce_sequence` is the expected sequence number within that channel.
-- **NONCE_FREE_EXPIRY_WINDOW** — The chain parameter bounding how far in the future a nonce-free transaction's `expiry` may be set.
+- **NONCE_FREE_EXPIRY_WINDOW** — The chain parameter bounding how far in the future a nonce-free transaction's `valid_before` may be set.
+- **Nonce-free mode** — The mode selected by `nonce_key == NONCE_KEY_MAX`, relying on finite `valid_before` plus `replay_id` deduplication instead of a sequential nonce.
 - **NONCE_KEY_MAX** — The sentinel value (`2^256 - 1`) for `nonce_key` selecting nonce-free mode, in which the protocol never reads or increments nonce state.
-- **Nonce-free mode** — The replay-protection mode selected via `nonce_key == NONCE_KEY_MAX`, relying on a non-zero `expiry` plus `replay_id` deduplication in a fixed-capacity consensus ring buffer instead of a sequential nonce. Introduced in PR #11478 (Apr 2, 2026), hardened by `replay_id` in PR #11752 (Jun 2, 2026).
-- **replay_id** — A `keccak256`-derived deduplication identifier for nonce-free transactions, deliberately excluding fee fields and both auth blobs so fee-bumped or re-signed variants of the same logical transaction collapse to one mempool slot. Defined in PR #11752 (Jun 2, 2026).
+- **nonce_key / nonce_sequence** — The packed two-dimensional nonce fields: `nonce_key` selects a channel (`0` standard, `1..NONCE_KEY_MAX-1` parallel, `NONCE_KEY_MAX` nonce-free), `nonce_sequence` is the expected sequence number within that channel.
 - **REPLAY_BUFFER_CAPACITY** — The protocol constant or chain parameter sizing the fixed-capacity consensus ring buffer of `replay_id`s used for nonce-free dedup; consensus state, not per-node bookkeeping.
+- **replay_id** — A `keccak256`-derived deduplication identifier for nonce-free transactions, deliberately excluding fee fields and both auth blobs so fee-bumped or re-signed variants of the same logical transaction collapse to one mempool slot. Defined in PR #11752 (Jun 2, 2026).
 
 ---
 
@@ -111,34 +115,32 @@ A comprehensive index of jargon used across this site: EIP-8130 itself, the acco
 ## 8. Account Lock and Mempool Safety
 
 - **Account Lock** — A per-account mechanism freezing actor-config changes and delegations while set. The draft grants a higher mempool tier when this is combined with a stateless authenticator; stateful and delegated authenticators can retain other invalidation dependencies. Introduced in PR #11367 (Mar 3, 2026), lifecycle simplified in PR #11918 (Jul 13, 2026).
-- **applySignedLockChanges** — The dedicated, EVM-only, admin-authorized entry point for locking or unlocking an account, operating on the local (per-chain) change channel only.
-- **LOCK_CHANGE_TYPEHASH** — The EIP-712-style typehash for a signed lock/unlock message, binding `account`, `chainId`, `op`, `unlockDelay`, and `sequence`.
-- **DEFAULT_EOA_REVOKED (flag)** — Bit 0 of the packed account-state flags field; when set, disables the implicit secp256k1 self-actor (the default EOA). `createAccount` and `importAccount` set it by default, which the spec calls a quantum-safe default. Introduced in PR #11815 (Jun 18, 2026), replacing an earlier `REVOKED_AUTHENTICATOR` sentinel address.
-- **LOCKED (flag)** — Bit 1 of the packed account-state flags field; while set, all actor-config changes and delegations are rejected except unlock.
-- **UNLOCK_INITIATED (flag)** — Bit 2 of the packed account-state flags field, selecting whether `lock_union` holds a pending `unlock_delay` or a computed `unlocks_at` timestamp.
-- **unlock_delay / unlocks_at** — The two interpretations of the packed `lock_union` field: a pending notice period (`unlock_delay`, bounded to the `uint16` range, about 18.2 hours max) before `UNLOCK_INITIATED` is set, or the computed unlock timestamp (`unlocks_at`) after.
+- **DEFAULT_EOA_REVOKED (flag)** — Disables the implicit secp256k1 self actor. `createAccount` and `importAccount` set it by default, the proposal's quantum-safe default.
+- **lock_union** — The packed `uint48` lock field interpreted as an unlock delay or timestamp; the configured delay itself is bounded to `uint16` seconds.
+- **Lock / Unlock changes** — Admin-authorized local operations inside `applySignedAccountChanges`, replacing the dedicated lock function in PR #12135.
+- **LOCKED (flag)** — Freezes authority changes and delegation; only Unlock and IncrementLocalEpoch remain permitted.
 
 ---
 
 ## 9. Account Creation, Import, and Cross-Chain Portability
 
-- **actors_commitment** — The `keccak256` commitment over all `initial_actors` entries, folded into the CREATE2 `effective_salt` so an account's address depends on its initial actor set.
+- **actors_commitment** — A hash of the ordered list of individually hashed initial-actor leaves, folded into the CREATE2 salt. PR #12135 changed the commitment to leaf-first hashing.
 - **chain_id = 0 channel** — The actor-config-change convention where `chain_id == 0` targets the multichain change-sequence counter. The same signature may be submitted separately to compatible deployments on multiple chains; lock changes are local-only. See [/cross-chain-accounts](/cross-chain-accounts).
 - **computeAddress** — The view function returning an account's CREATE2-derived address for a given `userSalt`, `bytecode`, and `initialActors`, without deploying it.
+- **CREATE2 address derivation** — The formula computing an account from `KEYSTORE_ADDRESS`, `effective_salt`, and deployment bytecode. It reproduces an address only where inputs and Keystore deployment match.
 - **createAccount** — The function creating a new account via a `create` entry, deriving its address from `user_salt` and the `initial_actors` commitment.
-- **CREATE2 address derivation** — The formula computing an account's address from `ACCOUNT_CONFIG_ADDRESS`, an `effective_salt` (itself derived from `user_salt` and `actors_commitment`), and the deployment bytecode hash. It reproduces an address only where those inputs and deployment infrastructure are identical.
 - **DEPLOYMENT_HEADER** — A fixed 14-byte EVM loader prefixing `code` in `deployment_code`, letting the same bytes serve as ordinary CREATE2 init code on non-8130 chains while an 8130-native chain places `code` directly.
 - **effective_salt** — `keccak256(user_salt || actors_commitment)`, the salt actually used in the CREATE2 formula, binding the account's address to its initial actor set.
 - **Existing Smart Contract (account type)** — One of three account-creation paths: an already-deployed account (e.g. an ERC-4337 wallet) registers actors via `importAccount()` rather than being created fresh.
 - **importAccount** — The function letting an already-deployed contract account bootstrap into EIP-8130's actor model via an ERC-1271 signature, without redeploying; rejected if the account already has any 8130 state.
-- **MAX_CODE_SIZE** — The 24,576-byte limit (via EIP-170) enforced on a create entry's `code`. Added by community PR #11609 (Jun 2, 2026).
+- **MAX_CODE_SIZE** — The EIP-170 deployment-code limit. PR #12173 removed its create-entry check from the protocol prose, leaving deployment validation to the canonical implementation.
 - **user_salt** — The caller-chosen `bytes32` salt input to CREATE2 address derivation, folded with `actors_commitment` into `effective_salt`.
 
 ---
 
 ## 10. System Contracts, Precompiles, and Constants
 
-- **0xef0100** — The EIP-7702 delegation-indicator prefix, reused verbatim by EIP-8130's own delegation account-change entries; an authenticator address whose code starts with this prefix is rejected (it must not itself be a delegated account).
+- **0xef0100** — The EIP-7702 delegation-indicator prefix reused by EIP-8130 account delegation. PR #12148 removed the redundant per-authenticator delegated-code check from native authentication.
 - **DEFAULT_ACCOUNT_ADDRESS** — The CREATE2-derived address a code-less EOA sender auto-delegates to when no create or delegation entry applies, giving every EOA a default wallet implementation.
 - **getNonce** — The read-only function on the Nonce Manager precompile, `getNonce(address account, uint256 nonceKey) returns (uint64)`.
 - **INonceManager** — The interface for the Nonce Manager precompile, exposing `getNonce` to ordinary EVM execution.
@@ -181,8 +183,10 @@ A comprehensive index of jargon used across this site: EIP-8130 itself, the acco
 - **MAX_FRAMES** — The cap on frames per EIP-8141 transaction, reduced from an original 1,000 to 64 via PR #11521 (Apr 14, 2026).
 - **MAX_VERIFY_GAS** — The 100,000-gas cap EIP-8141 imposes on its restrictive mempool tier's validation-prefix execution.
 - **SENDER (frame mode 2)** — An EIP-8141 frame called from `tx.sender`, requiring an approval already granted by a prior VERIFY frame.
+- **SIGDATACOPY (0xb5)** — EIP-8141's seventh opcode, added by PR #12187 to copy raw signature bytes with static stack requirements.
 - **signatures list** — EIP-8141's dedicated outer transaction field, a typed list of `[scheme, signer, msg, signature]` tuples (schemes `ARBITRARY`, `SECP256K1`, `P256`) built as a forward-compat hook for future PQ aggregation. secp256k1 and P-256 now require canonical low-s signatures; the merged draft has no explicit list bound.
-- **TXPARAM / FRAMEDATALOAD / FRAMEDATACOPY / FRAMEPARAM / SIGPARAM** — The remaining five of EIP-8141's six new opcodes, reading transaction-, frame-, and signature-scoped data during frame execution; `SIGPARAM` specifically exposes the raw bytes of an `ARBITRARY`-scheme signature for custom or PQ verification logic.
+- **state gas (EIP-8141)** — The second per-frame resource dimension added by PR #12062, with its own limit, receipt accounting, payer settlement, and EIP-8037 dependency.
+- **TXPARAM / FRAMEDATALOAD / FRAMEDATACOPY / FRAMEPARAM / SIGPARAM** — Five EIP-8141 opcodes reading transaction-, frame-, and signature-scoped data; `SIGPARAM` exposes `ARBITRARY` signature parameters.
 - **VERIFY (frame mode 1)** — An EIP-8141 frame dispatched with STATICCALL semantics; a frame carrying approval authority must call `APPROVE` to succeed.
 
 ---
@@ -201,8 +205,8 @@ A comprehensive index of jargon used across this site: EIP-8130 itself, the acco
 - **authorizations (EIP-8202)** — EIP-8202's typed list of `[role_id, scheme_id, witness]` tuples carrying scheme-agile sender proofs; only `ROLE_SENDER` is currently defined.
 - **EXT_BLOB / EXT_SET_CODE** — Two typed entries in EIP-8202's `extensions` list, carrying EIP-4844 blob fields and EIP-7702-style scheme-agile set-code delegations respectively.
 - **extensions (EIP-8202)** — EIP-8202's typed list of `[extension_id, extension_payload]` entries carrying orthogonal protocol features (blobs, set-code delegation) alongside the single execution payload.
-- **scheme_id** — The protocol-registered enum value identifying a signature scheme in EIP-8202's `authorizations` list; adding a scheme means registering a new `scheme_id`, not changing the envelope.
 - **SCHEME_EPHEMERAL_K1 (0x01)** — EIP-8202's Merkle-committed one-time secp256k1 scheme. A seed derives `2^20` ephemeral keys offchain; each transaction carries a recoverable signature, Merkle root, and proof for the nonce-selected key.
+- **scheme_id** — The protocol-registered enum value identifying a signature scheme in EIP-8202's `authorizations` list; adding a scheme means registering a new `scheme_id`, not changing the envelope.
 - **SCHEME_SECP256K1 (0x00)** — EIP-8202's ordinary recoverable secp256k1 authorization scheme.
 
 ---
@@ -222,7 +226,7 @@ A comprehensive index of jargon used across this site: EIP-8130 itself, the acco
 
 - **Keychain (wrapper)** — EIP-XXXX's deferred hook for access/session keys, wrapping an inner signature with a `user_address` for delegation; expiry, spending-limit, and revocation rules are not yet specified.
 - **MAX_WEBAUTHN_SIG_SIZE** — EIP-XXXX's bound on WebAuthn signature size (2,049 bytes), keeping validation cost deterministic.
-- **valid_after / valid_before** — EIP-XXXX's native, protocol-enforced transaction validity window fields, letting wallets schedule or expire transactions without application-level tricks.
+- **validity window (Tempo-like)** — The gist's protocol-enforced `valid_after` and `valid_before` fields. EIP-8130 independently adopted fields with the same names in PR #12135.
 
 ---
 
@@ -231,19 +235,19 @@ A comprehensive index of jargon used across this site: EIP-8130 itself, the acco
 - **ERC-4337** — The widely-deployed account-abstraction standard using a `validateUserOp` entry point that executes arbitrary wallet code during validation; the paradigm case EIP-8130's motivation section critiques (without naming it) for forcing nodes to simulate arbitrary EVM. Existing ERC-4337 wallets can migrate onto EIP-8130 via `importAccount()`.
 - **ERC-7562** — The ERC-4337-derived mempool-simulation ruleset; EIP-8141 references an ERC-7562-based permissive second mempool tier for use cases exceeding its restrictive validation-prefix policy.
 - **ERC-7579** — A modular-account standard for ERC-4337 wallets; ERC-8286 requires it alongside EIP-8141.
-- **ERC-8168** — "8130 Payer Service Capability," proposed in open ERC PR #1555. It defines `payer_*` JSON-RPC methods over `paymasterService` and token-offer `paymentMode` choices; as of Jul 28 it still uses EIP-8130's superseded `PAYER` scope term and is not the canonical-authenticator-set companion ERC.
-- **ERC-8286** — "Modular Accounts for Frame Transactions" (ERC PR #1794, open as of Jul 28, 2026), an application-layer standard building modular-account composability on top of EIP-8141, contrasted in [/developer-tooling](/developer-tooling) with EIP-8130's protocol-layer canonical authenticator set.
+- **ERC-8168** — "8130 Payer Service Capability," proposed in open ERC PR #1555. Its August updates aligned EIP-8130 validity fields and require offers to support `payer_sendTransaction`, `payer_signTransaction`, or both.
+- **ERC-8286** — "Modular Accounts for Frame Transactions" (ERC PR #1794, open as of August 20, 2026), an application-layer standard building on EIP-8141.
 - **ERC-8340** — "Transaction Metadata Encoding," proposed in open draft ERC PR #1883. It defines deterministic CBOR metadata for attribution, memos, transaction/phase/call scope, and salted offchain commitments, plus an ERC-5792 wallet capability; it does not change EIP-8130 consensus rules.
 
 ---
 
 ## 18. Governance and Process Terms
 
-- **Base Cobalt** — The Base network upgrade in which Base announced it plans to activate EIP-8130 in September 2026. This is a chain rollout commitment, not Ethereum L1 inclusion or current production activation.
-- **Base reference implementation** — Base's public `base/eip-8130` contract implementation and tests. Its PRs #44 and #45 add ERC-4337 fallback execution and account-scoped signature replay protection that are not merged into the canonical EIP text.
+- **Base Cobalt** — The Base upgrade whose current page lists EIP-8130, Sepolia, and mainnet as planning for September 2026. It is not current production activation or Ethereum L1 inclusion.
+- **Base reference implementation** — Base's canonical `base/eip-8130` contracts and tests. PR #12135 makes these contracts authoritative for detailed Keystore mechanics.
 - **Base Vibenet** — Base's ephemeral devnet at `vibes.base.org` for testing EIP-8130 before activation.
 - **Celo CIP-64** — An existing production account-abstraction system on Celo whose migration onto EIP-8130 was discussed at length on the EthMagicians thread (posts #12-23), ultimately forcing the `AA_TX_TYPE`/`AA_PAYER_TYPE` renumbering to avoid an OP Stack transaction-type collision. See [/cross-chain-accounts](/cross-chain-accounts) and [/developer-tooling](/developer-tooling).
-- **Draft (EIP status)** — EIP-8130's current formal status as of Jul 28, 2026: not finalized as an EIP. Base's announced Cobalt rollout does not change that formal status.
+- **Draft (EIP status)** — EIP-8130's formal status as of August 20, 2026. Base's Cobalt planning does not change Ethereum's status.
 - **EthMagicians thread** — The community discussion forum thread for EIP-8130 (ethereum-magicians.org/t/eip-8130-account-abstraction-by-account-configurations/25952), the primary venue for design debate outside the PR review process.
 - **Hegotá (hard fork)** — The Ethereum hard-fork "Considered for Inclusion" list EIP-8141 joined via PR #11537 (merged Apr 30, 2026). EIP-8130 has no equivalent Ethereum L1 listing; Base's Cobalt plan is separate.
 - **Significant PR** — This site's own classification for a merged PR meeting size or scope thresholds (large diff, cross-cutting spec changes, opcode/constant changes) warranting a full why/what/why-it-matters treatment in [/merged-changes](/merged-changes) rather than a one-line entry.

@@ -30,7 +30,7 @@ The distinction that separates EIP-8130 from EIP-8202 and EIP-XXXX is subtle but
 
 ## 2. EIP-8141 — Frame Transaction
 
-Authored by Felix Lange, Vitalik Buterin, lightclient, and others, submitted as PR #11202 (Jan 29, 2026). It introduces a new EIP-2718 type (`0x06`) built from up to 64 purpose-labeled "frames" (DEFAULT, VERIFY, SENDER), with an `APPROVE` opcode as the core validation primitive and arbitrary account code able to verify any signature scheme. Its two-tier model keeps execution fully general while restricting *public mempool relay* to a small set of validation-prefix shapes with a 100,000-gas cap and banned-opcode list. Eleven July 20-28 merges defined receipt encoding and transaction-level gas settlement, added optional blob support and direct evaluation of common validation prefixes, tightened P-256 signatures and fee fields, charged `ARBITRARY` signature entries, and excluded VERIFY frames from atomic batches. See [/eip-8141](/eip-8141).
+Authored by Felix Lange, Vitalik Buterin, lightclient, and others, EIP-8141 introduces transaction type `0x06` with purpose-labeled frames and arbitrary account-code validation through VERIFY frames. Since July 28 it added replacement and payer-exposure rules, log semantics, a second state-gas limit and settlement dimension, tighter atomic-batch and access-set rules, and a seventh opcode, `SIGDATACOPY`. Its public relay tier still constrains validation with a 100,000-gas cap and opcode/state-access rules. See [/eip-8141](/eip-8141).
 
 ## 3. EIP-8175 — Composable Transaction
 
@@ -58,8 +58,8 @@ A pre-draft gist by Georgios Konstantopoulos (Paradigm/Reth), with no EIP number
 
 | Proposal | PQ capability in the current draft | Path to add a new scheme |
 |---|---|---|
-| EIP-8130 | None. Canonical set is k1, P256, WebAuthn, delegate | Companion ERC (number TBD) is intended to define new canonical authenticators; client activation remains unspecified. New accounts default to revoking the implicit secp256k1 self-actor |
-| EIP-8141 | No native PQ scheme. If activated, `ARBITRARY (0x0)` could carry a witness checked by PQ-verifier account code; open EIP-8288 proposes PQ/STARK aggregation | Account code can add verification logic without a new protocol scheme; open PR #12011 proposes a consensus signature-scheme registry, while protocol aggregation still needs a sibling EIP |
+| EIP-8130 | None. Canonical set is k1, P256, WebAuthn, delegate | Companion ERC is intended to define new canonical authenticators; client activation remains unspecified. Open PR #12204 adds explicit crypto-agility language but no PQ scheme |
+| EIP-8141 | No native PQ scheme. `ARBITRARY (0x0)` can carry a witness checked by account code; open EIP-8288 proposes PQ/STARK aggregation | Account code can add verification logic; consensus-registry PR #12011 closed without merge, and aggregation still needs a sibling EIP |
 | EIP-8175 | None merged. SECP256K1 and ED25519 are defined; Falcon-512 is an open draft PR | New scheme requires a protocol-spec change and activation |
 | EIP-8202 | `SCHEME_EPHEMERAL_K1` (`0x01`), using Merkle-committed single-use ECDSA keys; no native PQ signature algorithm | A distinct EIP registers a new `scheme_id`; the envelope stays stable but consensus verification and clients change |
 | EIP-8223 | secp256k1 sender only; not a signature-decoupling proposal | n/a |
@@ -73,7 +73,7 @@ EIP-8130's PQ story is architectural rather than cryptographic: no PQ authentica
 | Proposal | What executes during validation | Complexity characterization |
 |---|---|---|
 | EIP-8130 | `STATICCALL` to a canonical authenticator, or native `ecrecover` for k1; sender account code itself does not validate the transaction | Fixed identity and interface, but contract authenticators may read state, branch, and make downstream static calls; strongest bounds require a stateless or enshrined authenticator |
-| EIP-8141 | Arbitrary EVM in VERIFY frames, restricted for public relay to four validation-prefix shapes, `MAX_VERIFY_GAS` = 100,000, banned-opcode list; three protocol-defined prefixes can be evaluated directly | Common validation paths avoid tracing after PR #12001, while custom prefixes still require metered EVM execution |
+| EIP-8141 | Arbitrary EVM in VERIFY frames, restricted for public relay by `MAX_VERIFY_GAS`, opcode and state-access rules; three protocol-defined prefixes can be evaluated directly | Common paths avoid tracing; custom prefixes use metered EVM plus separate execution- and state-gas limits |
 | EIP-8175 | Sender auth purely cryptographic; `fee_auth` prelude executes EVM for sponsorship decisions | Rated "Medium" (stateless sigs, `fee_auth` simulation needed) in EIP-8141's own comparative framing |
 | EIP-8202 | ecrecover, plus 20 Keccak-256 Merkle steps for ephemeral k1; no contract call | Deterministic cryptographic validation, with a large ephemeral witness |
 | EIP-8223 | One SLOAD from the `0x13` payer registry plus a balance check, no EVM | Rated "Minimal" (static reads only) |
@@ -86,8 +86,8 @@ The "Rated" characterizations for EIP-8141/8175/8202/8223/8224 come from a cross
 
 | Proposal | Status | PR activity | Notable adoption signal |
 |---|---|---|---|
-| EIP-8130 | Draft | 40 merged PRs (#11186 through #11918); 2 open (#11578, #11919) | Base announced Cobalt activation for Sep 2026 and OP Stack rollout later in 2026; Vibenet is live for testing, production activation is not |
-| EIP-8141 | Draft, Core | 49 commits to its canonical file; 8 direct open PRs as of Jul 28, plus open sibling work on EIP-8250, EIP-8272, and EIP-8288 | On the Hegotá "Considered for Inclusion" list; open ERC-8286 builds on it; this is not final inclusion or activation |
+| EIP-8130 | Draft | 43 merged PRs through #12173; 3 open (#11578, #11919, #12204) | Base Cobalt lists Sepolia and mainnet in planning for September; Vibenet is live, production activation is not |
+| EIP-8141 | Draft, Core | 61 canonical-file commits; 6 direct open PRs as of Aug 20, plus open sibling work including EIP-8288 | On the Hegotá "Considered for Inclusion" list; open ERC-8286 builds on it; this is not final inclusion or activation |
 | EIP-8175 | Draft | 3 merged PRs and 1 open Falcon-512 draft PR | No fork-inclusion or dependent-ERC activity found in current research |
 | EIP-8202 | Draft, merged to master | 1 PR (#11438, merged Apr 22, 2026) | No fork-inclusion activity found in current research |
 | EIP-8223 | Open PR only | 1 PR (#11509, opened Apr 11, 2026), no merge or review cycle yet | Very early stage |

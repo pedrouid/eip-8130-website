@@ -40,7 +40,7 @@ Pick the route that matches why you're here.
 
 ## How does it work?
 
-Every EIP-8130 account is governed by a single system contract, the **Account Configuration Contract**, which stores one `actor_config` slot per registered actor and delegates signature checking to an **authenticator contract**:
+Every EIP-8130 account is governed by the **Keystore** at `KEYSTORE_ADDRESS`, which stores actor and account state and delegates credential checks to an **authenticator contract**:
 
 ```solidity
 interface IAuthenticator {
@@ -48,9 +48,9 @@ interface IAuthenticator {
 }
 ```
 
-A node accepts a transaction into its mempool by checking the *identity* of the declared authenticator against a small canonical allowlist and calling it via `STATICCALL`, rather than executing the sender account's own code to discover its validation rules. `STATICCALL` prevents state writes, but it does not make authenticator code stateless or non-programmable. `K1_AUTHENTICATOR` is the native secp256k1 case: the protocol runs `ecrecover` directly instead of a contract call, which lets any existing EOA send AA transactions with no prior registration.
+A node accepts a transaction by checking the declared authenticator against a canonical allowlist and calling it via `STATICCALL`, rather than executing sender-account code. `K1_AUTHENTICATOR` runs native `ecrecover`. Account-aware `validateSignature` then uses typed local or multichain envelopes and an account- and chain-scoped digest.
 
-Each actor carries a `scope` byte of grants rather than a single all-or-nothing permission:
+Each actor carries a `uint16 scope` grant mask rather than one all-or-nothing permission:
 
 | Grant | Value | Meaning |
 |---|---|---|
@@ -66,7 +66,8 @@ Each actor carries a `scope` byte of grants rather than a single all-or-nothing 
 
 ```
 AA_TX_TYPE || rlp([
-  chain_id, sender, nonce_key, nonce_sequence, expiry,
+  chain_id, sender, nonce_key, nonce_sequence,
+  valid_after, valid_before,
   max_priority_fee_per_gas, max_fee_per_gas, gas_limit,
   account_changes, calls, metadata,
   payer, sender_auth, payer_auth
@@ -83,4 +84,4 @@ AA_TX_TYPE || rlp([
 | sender's own address | set | `sender` | Admin or `SELF_PAYER` on a dedicated gas key funding a sibling key |
 | a different address | set | the `payer` field | Admin or `SPONSOR_PAYER` on the payer's resolved actor |
 
-No bundler, no EntryPoint contract, no off-chain relayer. Validation, gas payment, and execution are all native protocol behavior. See [Current Spec](/current-spec) for the full mechanism, including nonces, Account Lock, and account creation and import.
+No bundler or EntryPoint contract is required on the native path. See [Current Spec](/current-spec) for validity windows, local epochs, multichain changes, nonces, Account Lock, and account creation.

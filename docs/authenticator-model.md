@@ -25,11 +25,11 @@ interface IAuthenticator {
 
 A transaction's `sender_auth` (and, if sponsored, `payer_auth`) field is `authenticator (20 bytes) || data`. The protocol resolves the acting key by calling `authenticator.authenticate(hash, data)` and comparing the returned `actorId` against the account's stored `actor_config`. The call is a `STATICCALL`: the authenticator cannot write storage or emit logs, but it can read chain state, branch, and make further calls that remain in the static context.
 
-Two constraints narrow the surface. Authenticator addresses must not be delegated accounts (code starting with the EIP-7702 delegation indicator `0xef0100` is rejected), removing that specific code-indirection mechanism. The protocol also checks that a returned `actorId` maps back to the same authenticator in `actor_config`, so an authenticator cannot claim an actor it was not registered against. Neither rule by itself limits the authenticator's internal reads or call graph.
+The protocol checks that a returned `actorId` maps back to the same authenticator in `actor_config`, so an authenticator cannot claim an actor it was not registered against. PR [#12148](https://github.com/ethereum/EIPs/pull/12148) removed the separate delegated-code check because the canonical allowlist already gates transaction authentication. This does not limit a canonical authenticator's internal reads or call graph.
 
 ### K1_AUTHENTICATOR: the native special case
 
-`K1_AUTHENTICATOR` is the constant `address(1)`. When it appears as the authenticator in an auth blob, the protocol performs `ecrecover` directly against `data` (raw `r || s || v`) rather than issuing a `STATICCALL`, returning `actorId = bytes32(bytes20(recovered_address))`. This gives plain secp256k1 accounts a zero-external-call validation path: the "authenticator" is a protocol sentinel, not a deployed contract, so no STATICCALL gas sits on top of the signature check.
+`K1_AUTHENTICATOR` is the constant `address(1)`. When it appears in an auth blob, the protocol performs `ecrecover` directly rather than issuing a `STATICCALL`. PR [#12173](https://github.com/ethereum/EIPs/pull/12173) standardized the result as `actorId = bytes32(uint256(uint160(recovered_address)))`, with the address in the low 20 bytes. The authenticator is a protocol sentinel, not a deployed contract.
 
 The same identity space serves two registration states. A fresh, never-configured account implicitly authenticates as its own self-actor via this native path whenever a secp256k1 signature recovers to the account address and `DEFAULT_EOA_REVOKED` is unset. This is the spec's **Implicit EOA Authorization**, and it is why this document folds in what would otherwise be a separate "EOA support" page: an implicit-default EOA is not a distinct code path, it is `K1_AUTHENTICATOR` with an empty `actor_config` entry and default, unrestricted scope. Registering the self-actor explicitly with `K1_AUTHENTICATOR` lets a wallet attach a custom scope or expiry to the same key while keeping native `ecrecover`; only `actor_config` distinguishes an unrestricted owner key from a scoped one.
 
@@ -43,10 +43,10 @@ The initial canonical set, per the current spec:
 
 | Name | Algorithm | Authenticator | `actorId` derivation |
 |---|---|---|---|
-| k1 | secp256k1 | `K1_AUTHENTICATOR` (native sentinel) | `bytes32(bytes20(recovered_address))` |
+| k1 | secp256k1 | `K1_AUTHENTICATOR` (native sentinel) | Right-aligned recovered address |
 | p256 | P-256 | Onchain contract | `keccak256(x \|\| y)` |
 | passkey | WebAuthn / FIDO2 | Onchain contract | `keccak256(x \|\| y)` |
-| delegate | Signature delegation | Onchain contract | `bytes32(bytes20(delegated_address))` |
+| delegate | Signature delegation | Onchain contract | Right-aligned delegated address |
 
 The set and its contract addresses are intended to live in a **companion ERC (number TBD)** and use deterministic CREATE2 deployment across chains. The draft expects the set to grow over time, with post-quantum schemes as an explicit example. Nodes MUST include every canonical authenticator and SHOULD NOT extend the allowlist with non-canonical ones. Deploying a contract is permissionless; making it canonical is a coordinated specification and client-adoption step. The draft does not say whether that update can activate without a network upgrade. Execution can be metered as ordinary EVM execution or, if a chain enshrines an authenticator, charged at a fixed cost while producing identical results.
 
@@ -86,15 +86,15 @@ New-scheme adoption also requires an allowlist update, not just a deployment. A 
 
 ## 4. The ERC-1271 / Operational-Signing Angle
 
-EIP-8130 exposes a second, distinct check alongside transaction authentication: `verifySignature(account, hash, signature)`, an ERC-1271-style boolean predicate for off-chain signing (Permit-style approvals, order signatures). As of the scope-grant redesign in PR #11918 (merged Jul 13, 2026), ERC-1271 signing is not a separate grant bit; it is authorized for any actor with **operational authority**, defined as `operational := admin (scope == 0x00) || (SENDER && !POLICY)`.
+PR [#12135](https://github.com/ethereum/EIPs/pull/12135) separated raw authentication from account-aware signature validation. `authenticateActor(hash, auth)` resolves an actor without adding account or chain domain separation. `validateSignature(account, hash, auth)` consumes a typed `Local (0x01)` or `Multichain (0x02)` envelope, authenticates an account- and chain-scoped `replaySafeHash`, and returns the actor's scope. ERC-1271 remains a compatibility wrapper around the second path.
+
+ERC-1271 signing is not a separate grant bit. It is authorized for any actor with **operational authority**, defined as `operational := admin (scope == 0x00) || (SENDER && !POLICY)`.
 
 The rationale, quoted directly from the spec: "Signing is an encoding of authority, not a separate capability: an operational key can already call approve/transfer directly, so letting it produce a Permit or order signature grants nothing it did not already have (approve ≡ permit)." A `POLICY`-scoped actor is never operational and must not sign raw hashes, since a signature acts off the policy gate, and a gated key that could freely sign would escape the single-target restriction its `manager` enforces. The spec forecloses a narrower "sign-only" grant too: "A sign-only restriction would be illusory anyway (a hash-blind signer can still sign a Permit2 drain), so signing gets no bit; scoped signing is expressed at the account layer via an approved-hash / approve-typed-data pattern," citing the Safe `approveHash` precedent.
 
 This is itself a case study in the tradeoff above. The original scope model (PR #11388, Mar 9 2026) had a standalone `SIGNATURE` bit among four grants (SIGNATURE/SENDER/PAYER/CONFIG). The `operational` predicate replaced it in the Jul 13 rewrite because a bit-based signing grant was a false boundary: anything an operational key can already do by calling a contract directly, it can also do by signing off-chain, so gating "may sign" independently of "may call" added a second bit to track rather than real security.
 
-`authenticateActor` (transaction validation) and `verifySignature` (off-chain signing) are deliberately different entry points: the former reverts on failure and returns the actor's raw authorization surface; the latter returns a plain boolean. Both route through the same authenticator resolution, with the operational-authority check layered on top only for signing.
-
-The canonical draft passes the supplied `hash` directly into authentication. Base's reference implementation diverged in [PR #45](https://github.com/base/eip-8130/pull/45) (merged July 24): `verifySignature` now authenticates an account-scoped EIP-712 `replaySafeHash(account, hash)`, preventing a shared credential from replaying one ERC-1271 signature across multiple accounts. That is an implementation hardening, not yet canonical EIP-8130 behavior.
+The account-scoped replay protection first appeared in Base implementation [PR #45](https://github.com/base/eip-8130/pull/45). PR #12135 brought it into the EIP in an evolved typed-envelope form, preventing a credential shared across accounts from replaying one signature everywhere.
 
 ---
 
@@ -104,7 +104,9 @@ Three thresholds govern whether a new authenticator can authenticate transaction
 
 The practical effect is a two-speed adoption model: a wallet can experiment with a novel authenticator immediately for anything not needing mempool-path inclusion, but getting it onto the fast path nodes actually allowlist is a slower, ecosystem-level process. This mirrors, at a smaller scale, a tension the EthMagicians thread surfaced early: rmeissner's post #5 (Jan 22, 2026) worried bundling authentication and gas-payment logic into one EIP would "lower the chances of adoption by the core team due to complexity," prompting chunter to split the proposal's scope. The same instinct, a narrow fast path with broader functionality behind slower registration, recurs in the canonical-set design.
 
-Open EIP-8141 [PR #12011](https://github.com/ethereum/EIPs/pull/12011) now proposes a contrasting registry model: protocol-validated schemes would form an explicit consensus registry extended only by network upgrades, while `ARBITRARY` remains the account-code escape hatch. It is not merged, but it sharpens the distinction between EIP-8130's companion-ERC/node-allowlist model and a registry embedded directly in consensus.
+EIP-8141 [PR #12011](https://github.com/ethereum/EIPs/pull/12011) explored a contrasting consensus registry for protocol-validated schemes, with `ARBITRARY` as the account-code escape hatch, but closed without merging on July 29. EIP-8130's companion-ERC and node-allowlist activation path remains the live model.
+
+Open EIP-8130 [PR #12204](https://github.com/ethereum/EIPs/pull/12204) would add two adoption profiles: a permissive L1 path accepting any bounded `STATICCALL` authenticator and a canonical-only L2 path. Its proposed `MAX_AUTHENTICATION_GAS` cap and explicit crypto-agility language are not canonical behavior.
 
 The `Existing Smart Contracts` account type in the spec's own Account Types table gives the concrete migration path for wallets predating EIP-8130: an already-deployed ERC-4337 account registers actors via `importAccount()`, authorized by a signature checked against its existing ERC-1271 implementation, without redeploying.
 

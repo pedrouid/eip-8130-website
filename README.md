@@ -2,7 +2,7 @@
 
 Source-driven analysis of [EIP-8130](https://eips.ethereum.org/EIPS/eip-8130) (Account Abstraction by Account Configuration), tracking its design, review history, alternatives, and unresolved questions.
 
-Last updated: July 28, 2026. Tracks the unchanged canonical spec through PR #11918, with EIP PRs #11578 and #11919 open and the forum through post #26. Also tracks ERC-8168, ERC-8340, Base's reference implementation and builder guide, and the announced September Cobalt rollout.
+Last updated: August 20, 2026. Tracks 43 merged spec PRs through #12173, three open EIP PRs (#11578, #11919, #12204), and the forum through post #27. Also tracks ERC-8168, ERC-8340, Base's canonical Keystore implementation and builder guide, Cobalt planning, and EIP-8141 through 61 canonical-file commits.
 
 > [!IMPORTANT]
 > EIP-8130 is a Draft proposal. It is not finalized, scheduled for an Ethereum hard fork, or available on Ethereum mainnet. Unless a paragraph is explicitly labeled as analysis, protocol behavior described here summarizes the current draft rather than a deployed system.
@@ -21,7 +21,7 @@ Factual claims are checked against the canonical EIP file, PR diffs and review t
 
 | Document | Description |
 |---|---|
-| [Current Spec Overview](./docs/current-spec.md) | What EIP-8130 can do today - Account Configuration Contract, authenticators, transaction format, nonces, account lock, gas sponsorship |
+| [Current Spec Overview](./docs/current-spec.md) | What EIP-8130 proposes today - Keystore, authenticators, validity windows, local epochs, nonces, account lock, gas sponsorship |
 | [Feedback Evolution](./docs/feedback-evolution.md) | How community feedback shaped the spec across its phased history |
 | [Original Spec](./docs/original-spec.md) | The October 2025 submission - original design and what it lacked |
 | [Merged Changes](./docs/merged-changes.md) | Every PR (merged, rejected, open) in chronological order with rationale |

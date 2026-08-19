@@ -1,6 +1,6 @@
 # Merged Changes
 
-Every pull request touching `EIPS/eip-8130.md`, in commit order, from the original submission (PR [#11186](https://github.com/ethereum/EIPs/pull/11186), merged February 28, 2026) through the most recent merge (PR [#11918](https://github.com/ethereum/EIPs/pull/11918), merged July 13, 2026). Sections below group same-day or same-theme merges; structurally significant PRs get a full why/what/why-it-matters treatment, and smaller changes get a one-line entry. Currently open and closed-without-merge PRs are listed separately at the end of this page. See [Original Spec](/original-spec) for the pre-#11367 baseline and [Original vs Latest](/original-vs-latest) for a structural diff against today's spec.
+Every pull request touching `EIPS/eip-8130.md`, in commit order, from the original submission (PR [#11186](https://github.com/ethereum/EIPs/pull/11186), merged February 28, 2026) through the most recent merge (PR [#12173](https://github.com/ethereum/EIPs/pull/12173), merged August 14, 2026). Sections below group same-day or same-theme merges; structurally significant PRs get a full why/what/why-it-matters treatment, and smaller changes get a one-line entry. Currently open and closed-without-merge PRs are listed separately at the end of this page. See [Original Spec](/original-spec) for the pre-#11367 baseline and [Original vs Latest](/original-vs-latest) for a structural diff against today's spec.
 
 ---
 
@@ -216,13 +216,37 @@ The duplicate PR #11144 (opened January 21, closed January 29) is tracked under 
 
 - **Why**: The four-bit scope model from PR #11388 (March 9, SIGNATURE/SENDER/PAYER/CONFIG) conflated a full-authority CONFIG bit with escalation risk (any key that could rewrite `actor_config` could just grant itself CONFIG), bundled self-pay and sponsorship under one PAYER bit despite being materially different security boundaries, and gave signing its own SIGNER bit despite signing conferring no authority a key didn't already have.
 - **What**: "Scope grants, PAYER split, operational ERC-1271, account lock" is the biggest structural rewrite since PR #11367 (March 3). Redefines admin as the predicate `scope == 0x00` rather than a separate CONFIG bit. Redefines scope as five independent grant bits: SENDER (0x01), POLICY (0x02), NONCE (0x04), SELF_PAYER (0x08), SPONSOR_PAYER (0x10). Splits PAYER into SELF_PAYER and SPONSOR_PAYER, defined relationally (self-pay vs. sponsorship depends on whether `payer account == sender account`, not an absolute mode). Removes the standalone SIGNER bit, reframing ERC-1271 signing as "operational authority," `operational := admin || (SENDER && !POLICY)`. Simplifies the Account Lock lifecycle to strict lock-then-unlock (no re-lock or cancel-while-locked) via a new `applySignedLockChanges` entry point.
-- **Why it matters**: Naming admin as absence-of-restriction rather than a grantable bit makes self-escalation explicit rather than hiding it. The SELF_PAYER/SPONSOR_PAYER split is a materially different security boundary from the original single PAYER bit: it lets a dedicated gas key fund a sibling key on the same account (SELF_PAYER) while a paymaster hot key can be sponsor-only over a locked treasury (SPONSOR_PAYER). This is the scope model documented in [Current Spec](/current-spec) today, and the most recent merged structural change.
+- **Why it matters**: Naming admin as absence-of-restriction rather than a grantable bit makes self-escalation explicit rather than hiding it. The SELF_PAYER/SPONSOR_PAYER split is a materially different security boundary from the original single PAYER bit: it lets a dedicated gas key fund a sibling key on the same account (SELF_PAYER) while a paymaster hot key can be sponsor-only over a locked treasury (SPONSOR_PAYER). This is the scope model documented in [Current Spec](/current-spec) today.
+
+---
+
+## Keystore Alignment, Validity Windows, and Local Epochs — August 11, 2026
+
+**PR [#12135](https://github.com/ethereum/EIPs/pull/12135)** — chunter-cb, +214/-312
+
+- **Why**: Contract work had moved ahead of the prose specification. The EIP still described separate actor-change and lock paths, one transaction expiry, and implementation details that no longer matched the reference contracts. The PR aligned the EIP with the Keystore research and made the contracts authoritative for internal mechanics.
+- **What**: Renames the Account Configuration Contract to the **Keystore** and `ACCOUNT_CONFIG_ADDRESS` to `KEYSTORE_ADDRESS`; expands the formal `requires` list; replaces transaction `expiry` with millisecond `valid_after` and `valid_before`; expands scope from `uint8` to `uint16`; introduces a packed local epoch and sequence plus `UNSEQUENCED` changes; unifies actor, epoch, lock, and unlock operations under `applySignedAccountChanges`; adds `CONTRACT_ESTABLISHED`; hashes each initial-actor leaf before the list commitment; and replaces raw signature verification with typed local or multichain `validateSignature` envelopes using an account- and chain-scoped `replaySafeHash`.
+- **Why it matters**: This is the broadest rewrite since the March 3 account-change unification. It changes transaction validity, replay domains, local recovery semantics, account-state packing, and the canonical contract boundary in one merge.
+
+**Key review discussion**: No substantive human review objection or approval was posted in the PR thread. The recorded checks were automated eth-bot and CI approvals, and the PR merged the day after it opened. The rationale is therefore carried by the PR description and diff rather than a reviewer exchange.
+
+---
+
+## Audit Reconciliation — August 12, 2026
+
+**PR [#12148](https://github.com/ethereum/EIPs/pull/12148)** — chunter-cb, +4/-4. Reconciles the EIP with the contract audit: self-revocation disables the implicit and explicit actor paths, canonical allowlisting makes a separate delegated-authenticator code check redundant, expired unsequenced authorizations are skipped within a batch, and sequenced authorizations may land already inert.
+
+---
+
+## Address-Derived actorId Encoding — August 14, 2026
+
+**PR [#12173](https://github.com/ethereum/EIPs/pull/12173)** — chunter-cb, +21/-22. Standardizes every address-derived `actorId` as `bytes32(uint256(uint160(address)))`, with the address right-aligned in the low 20 bytes. It also clarifies self-revocation and removes the protocol-level create-entry code-size check, leaving deployment validation to the implementation contract.
 
 ---
 
 ## Active/Open PRs
 
-*As of July 28, 2026.*
+*As of August 20, 2026.*
 
 ### PR #11578 — "Add opaque_input bytes field"
 
@@ -239,6 +263,14 @@ The duplicate PR #11144 (opened January 21, closed January 29) is tracked under 
 - **Why**: Expiry was previously only settable via a post-deployment config change; wallets creating an account with a session-style initial actor had no way to bound its lifetime at creation time.
 - **Proposed change**: Adds an optional `uint48 expiry` to each initial actor at `createAccount`/`importAccount` time, committing `expiry` into the per-actor address-derivation preimage (`actorId || authenticator || scope || expiry || policyData`) so a front-runner cannot alter it.
 - **Status**: Still open as a draft with no review comments. It directly extends PR #11918's `policyData`-at-create work.
+
+### PR #12204 — "Add adoption profiles, bounded authenticator gas, and timestamp normalization"
+
+- **Author**: chunter-cb
+- **Opened**: August 19, 2026, +103/-26
+- **Why**: Give L1 and L2 adopters explicit deployment profiles while bounding public-mempool authentication work and making payer-selected authentication cost predictable.
+- **Proposed change**: Defines a permissive L1 profile with a `MAX_AUTHENTICATION_GAS` cap and a canonical-only L2 profile with configurable pricing; moves payer-auth bytes outside `gas_limit`; exposes sender, payer, calls, and gas limit during authentication; describes full-EVM metering phases; and accepts second or millisecond timestamps by magnitude.
+- **Status**: Open and not a draft. No review comments or submitted reviews were present at the August 20 snapshot. It supersedes closed drafts #12185 and #12192. None of its rules are current EIP behavior.
 
 ---
 
@@ -257,3 +289,7 @@ The duplicate PR #11144 (opened January 21, closed January 29) is tracked under 
 **PR [#11751](https://github.com/ethereum/EIPs/pull/11751)** — chunter-cb, opened June 1, closed June 18, 2026, +52/-34. "Add delegated account creation," explicitly marked "JUST A DRAFT FOR DISCUSSION." Proposed extending the create entry so a new account could be created as an EIP-7702 delegation (a 23-byte `0xef0100 || target` indicator) instead of placed bytecode, with EIP-7819-style address derivation and gas accounting (`EMPTY_ACCOUNT_COST` = 25,000). Draft-only, closed without merging into the base spec. No successor PR has revived this feature; delegated account creation at create time is not present in the current spec.
 
 **PR [#11758](https://github.com/ethereum/EIPs/pull/11758)** — chunter-cb, opened June 2, closed June 4, 2026, +22/-28. "Minimize Transaction Context precompile to identity," proposed trimming `ITxContext` down to three identity-only getters (`getTransactionSender`/`getTransactionPayer`/`getTransactionSenderOwnerId`), dropping `getCalls()`/`getMaxCost()`/`getGasLimit()` and the `Call` struct, on the grounds that the only historical consumers of the batch-inspection fields were stateful payer verifiers superseded by policy managers. Closed and partially superseded, partially reversed by PR #11764 (merged the same week): #11764's own description states it "keeps the renames from #11758 but drops its removals," the naming convention was kept, but the decision to remove `getCalls`/`getMaxCost`/`getGasLimit` was reversed and the full interface retained.
+
+**PR [#12185](https://github.com/ethereum/EIPs/pull/12185)** — chunter-cb, opened August 18 and closed August 19, 2026, +84/-20. First draft of the L1/L2 adoption-profile and bounded-authentication-gas work. Closed in favor of the consolidated #12204.
+
+**PR [#12192](https://github.com/ethereum/EIPs/pull/12192)** — chunter-cb, opened August 18 and closed August 19, 2026, +103/-26. Follow-up draft adding transaction context and timestamp normalization. Closed in favor of #12204.

@@ -1,6 +1,6 @@
 # Feedback Evolution
 
-This page traces how community feedback and PR review shaped EIP-8130 (Account Abstraction by Account Configuration) from its October 2025 forum origin through the July 2026 public implementation work. It is organized into chronological, thematic phases. Each phase cites the PR or forum post that drove a change and explains the reasoning behind it, not just the mechanical diff (mechanics live on [Merged Changes](/merged-changes)).
+This page traces how community feedback and PR review shaped EIP-8130 (Account Abstraction by Account Configuration) from its October 2025 forum origin through the August 2026 Keystore alignment. It is organized into chronological, thematic phases. Each phase cites the PR or forum post that drove a change and explains the reasoning behind it, not just the mechanical diff (mechanics live on [Merged Changes](/merged-changes)).
 
 ---
 
@@ -108,12 +108,32 @@ A same-day follow-up, PR #11919 (opened July 13, still open), adds an optional `
 
 **Scoped actors get a concrete "remote control" test (posts #23-26, July 21-22).** After karlb confirmed the transaction-type renumbering resolved Celo's collision (post #23), cyrus asked whether an EOA could originate transactions for a smart account without gaining actor-management authority (post #24). chunter answered that a non-admin actor can combine `SENDER | SELF_PAYER | NONCE`, optionally adding `SPONSOR_PAYER`, while only `scope == 0x00` remains admin (post #25). Cyrus then asked whether account code itself can add or remove a `SENDER` actor (post #26). That question remains unanswered on the thread; the canonical text says anyone may relay an actor change, but its signed authorization must resolve to an existing admin.
 
-**The reference implementation exposes portability and signing boundaries.** Base's implementation [PR #44](https://github.com/base/eip-8130/pull/44) (merged July 22) added `executeAttested` for ERC-4337-only chains with no transaction-context precompile, explicitly moving actor authenticity and confinement into the account. [PR #45](https://github.com/base/eip-8130/pull/45) (merged July 24) wrapped ERC-1271 checks in an account-scoped EIP-712 `replaySafeHash` to prevent a credential shared by multiple accounts from replaying one signature across all of them. Neither behavior is merged into the canonical EIP text, so they are implementation evidence and potential specification follow-up, not current consensus rules.
+**The reference implementation exposes portability and signing boundaries.** Base's implementation [PR #44](https://github.com/base/eip-8130/pull/44) (merged July 22) added `executeAttested` for ERC-4337-only chains with no transaction-context precompile, explicitly moving actor authenticity and confinement into the account. [PR #45](https://github.com/base/eip-8130/pull/45) (merged July 24) wrapped ERC-1271 checks in an account-scoped EIP-712 `replaySafeHash` to prevent a credential shared by multiple accounts from replaying one signature across all of them. The signing boundary became canonical in evolved form in Phase 9; the attested ERC-4337 path remains implementation behavior.
+
+---
+
+## Phase 9: Public Policy and Keystore Convergence (July 30 – August 20, 2026)
+
+### Permissionless policy actors remain an open question (post #27, July 30)
+
+Cyrus proposed a wildcard or public `POLICY` actor that anyone could authenticate as, provided every top-level call remained confined to one policy manager. The motivating cases were permissionless legacy-asset unwraps and keeper-style actions. The question tests whether policy confinement can replace actor allowlisting without reopening denial-of-service risk during validation. No answer appears after post #27, and the merged EIP still requires every native transaction actor to authenticate through the Keystore.
+
+### The contracts become the source for mechanics (Base PRs #46, #55, #63, #64, August 6-7)
+
+Base's implementation moved through a large research alignment: [PR #46](https://github.com/base/eip-8130/pull/46) consolidated the contract model; [#55](https://github.com/base/eip-8130/pull/55) widened scope and revised slot packing; [#63](https://github.com/base/eip-8130/pull/63) introduced typed signature envelopes; and [#64](https://github.com/base/eip-8130/pull/64) added the local-epoch system. The common rationale was to make account recovery, unsequenced changes, and cross-account signing boundaries explicit before the EIP repeated lower-level contract details.
+
+### Keystore alignment (PR #12135, opened August 10, merged August 11)
+
+PR #12135 pulled that contract work into the EIP and deliberately slimmed the prose. It renamed Account Configuration to Keystore, replaced one transaction expiry with a millisecond validity window, introduced local epochs, unified signed actor and lock operations, added `CONTRACT_ESTABLISHED`, and made `validateSignature` account- and chain-scoped. The change was +214/-312 and touched nearly every major area. No substantive human review exchange was posted; automated approvals and CI were the only recorded reviews before the next-day merge.
+
+### Audit reconciliation and actorId encoding (PRs #12148 and #12173, August 12-14)
+
+PR #12148 reconciled edge cases found during contract review: self-revocation disables both actor paths, redundant delegated-code checking is removed, and expired unsequenced grants are skipped without blocking live siblings. PR #12173 then fixed address-derived `actorId` values to right-aligned addresses and removed create-bytecode validation detail from the protocol prose. Together they show the new operating model: the EIP specifies consensus boundaries while the audited Keystore contracts carry internal mechanics.
 
 ---
 
 ## Where Things Stand
 
-As of July 28, 2026, EIP-8130 carries `requires: 170, 2718` and remains a Draft with two open EIP PRs: #11578 (`opaque_input`) and #11919 (expiry at create/import). The forum reaches post #26, ending on an unanswered actor-management question whose current spec answer still requires admin authorization. Open application-layer work includes ERC-8168 and ERC-8340. Base has announced September activation through Cobalt, published a reference implementation and builder guide, and made Vibenet available for testing, but no production activation has occurred yet.
+As of August 20, 2026, EIP-8130 remains a Draft with 43 merged spec PRs and three open EIP PRs: #11578 (`opaque_input`), #11919 (expiry at create/import), and #12204 (L1/L2 adoption profiles and bounded authenticator gas). The forum reaches post #27 with the public-policy-actor question unanswered. ERC-8168 and ERC-8340 remain open. Base's Cobalt page lists both Sepolia and mainnet in planning for September; no production activation has occurred yet.
 
 For the mechanical PR-by-PR record, see [Merged Changes](/merged-changes). For the spec as it stands today, see [Current Spec](/current-spec).

@@ -35,7 +35,7 @@ Tempo-like Transactions do not attempt to replace ERC-4337, support arbitrary va
 - Passkey (P-256 / WebAuthn) signing alongside secp256k1
 - A deferred hook for access/session keys (the "Keychain" wrapper)
 
-Everything is checked cryptographically or against fixed-size fields. There is no equivalent of EIP-8130's Account Configuration Contract, no authenticator registration, and no scope/permission bitmask.
+Everything is checked cryptographically or against fixed-size fields. There is no equivalent of EIP-8130's Keystore, authenticator registration, or scope mask.
 
 ---
 
@@ -74,7 +74,7 @@ Signature sizes are bounded (`MAX_WEBAUTHN_SIG_SIZE = 2,049` bytes) and verifica
 | Formal status | Pre-draft gist, no EIP number, no PR, no discussion thread | Draft, Core/Standards Track, `requires: 170, 2718`, 40+ merged PRs |
 | Transaction type | `0x76` | `AA_TX_TYPE = 0x79` (plus `AA_PAYER_TYPE = 0x7A` as a signature-domain byte, not a separate envelope) |
 | Validation model | Fixed signature encodings checked inline against the envelope; no contract call | Authenticator contracts invoked via STATICCALL, checked against a canonical allowlist; native `K1_AUTHENTICATOR` sentinel for secp256k1 |
-| Account configuration | None; sender is an existing EOA or a new address derived from a passkey public key | Onchain Account Configuration Contract; actors registered per account via `actor_config`, existing EOAs and existing smart-contract wallets supported without new addresses |
+| Account configuration | None; sender is an existing EOA or a new address derived from a passkey public key | Onchain Keystore; actors registered per account via `actor_config`, existing EOAs and smart-contract wallets supported |
 | Extending the signature set | Would require changing and activating the protocol definition | A contract can be deployed freely, but direct AA authentication requires canonical-set adoption; activation is unspecified |
 | Permission scoping | None; a valid signature authorizes the entire call batch | Scope bitmask (`SENDER`, `POLICY`, `NONCE`, `SELF_PAYER`, `SPONSOR_PAYER`); `POLICY` gates a key to a single target contract |
 | Batching model | Flat `calls` list, single all-or-nothing atomicity level | Two-level Call Phases: phases commit independently in sequence, calls within a phase are atomic |
@@ -90,7 +90,7 @@ Signature sizes are bounded (`MAX_WEBAUTHN_SIG_SIZE = 2,049` bytes) and verifica
 
 ## Activity
 
-The proposal exists only as a gist authored by Georgios Konstantopoulos (Paradigm/Reth). There is no PR against `ethereum/EIPs`, no assigned EIP number, and no EthMagicians discussion thread. It is referenced in community discussion of the account-abstraction design space but has not been formally submitted for review as of July 28, 2026. No participant list, review comments, or merge history exist to report beyond the gist itself.
+The proposal exists only as a gist authored by Georgios Konstantopoulos (Paradigm/Reth). There is no PR against `ethereum/EIPs`, no assigned EIP number, and no EthMagicians discussion thread. It is referenced in community discussion of the account-abstraction design space but has not been formally submitted for review as of August 20, 2026. No participant list, review comments, or merge history exist to report beyond the gist itself.
 
 ---
 

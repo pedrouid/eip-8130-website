@@ -2,21 +2,26 @@
 
 ---
 
-The "Original (Oct 14)" column reflects the baseline established by [PR #11186](https://github.com/ethereum/EIPs/pull/11186), the first version of `eip-8130.md` merged into the ethereum/EIPs repo (merged February 28, 2026). October 14, 2025 is the EIP's `created` frontmatter date (concept inception; the EthMagicians thread itself opened October 24); no spec text existed in the repo at that time, so the comparison below is against the substance of #11186, not a document that existed on that calendar date. "Latest (Jul 28)" reflects unchanged `master` as of July 28, 2026, after [PR #11918](https://github.com/ethereum/EIPs/pull/11918) (merged July 13, 2026).
+The "Original (Oct 14)" column reflects the baseline established by [PR #11186](https://github.com/ethereum/EIPs/pull/11186), the first version of `eip-8130.md` merged into the ethereum/EIPs repo (merged February 28, 2026). October 14, 2025 is the EIP's `created` frontmatter date (concept inception; the EthMagicians thread itself opened October 24); no spec text existed in the repo at that time, so the comparison below is against the substance of #11186, not a document that existed on that calendar date. "Latest (Aug 20)" reflects `master` after [PR #12173](https://github.com/ethereum/EIPs/pull/12173) (merged August 14, 2026).
 
 ## Structural Comparison
 
-| Aspect | Original (Oct 14) | Latest (Jul 28) |
+| Aspect | Original (Oct 14) | Latest (Aug 20) |
 |---|---|---|
+| **Configuration system** | Account Configuration Contract with most internal mechanics repeated in the EIP | Keystore at `KEYSTORE_ADDRESS`; PR #12135 (Aug 11) makes the canonical Base contracts authoritative for lower-level mechanics |
 | **Authority-holder terminology** | "Keys," identified by `keyId`, stored in `key_config` | "Actors," identified by `actorId`, stored in `actor_config`. Renamed keys to owners in PR #11380 (Mar 6), then owners to actors in PR #11764 (Jun 4) |
-| **Signature-verification terminology** | "Verifiers," via `IAuthVerifier.verify()` | "Authenticators," via `IAuthenticator.authenticate()`. `IAuthVerifier` renamed `IVerifier` in PR #11388 (Mar 9), then `IVerifier` renamed `IAuthenticator` in PR #11785 (Jun 9) |
+| **Signature-verification terminology** | "Verifiers," via `IAuthVerifier.verify()` | "Authenticators," via `IAuthenticator.authenticate()`, plus typed local/multichain `validateSignature` envelopes with account- and chain-scoped `replaySafeHash` from PR #12135 |
 | **Sender field name** | `from` | `sender`, renamed in PR #11526 (May 11) to disambiguate from EVM/JSON-RPC `from` semantics |
-| **Scope/grant model** | No scope bits; only a `key_policy` bitfield (`revoked`, `requireSponsor`), so a `requireSponsor` key could authenticate but not spend account ETH on gas. Otherwise all keys had equal authority | Five independent grant bits: SENDER (0x01), POLICY (0x02), NONCE (0x04), SELF_PAYER (0x08), SPONSOR_PAYER (0x10). First introduced as SIGNATURE/SENDER/PAYER/CONFIG in PR #11388 (Mar 9), redesigned to the current bit set in PR #11918 (Jul 13) |
+| **Scope/grant model** | No scope bits; only a `key_policy` bitfield (`revoked`, `requireSponsor`), so a `requireSponsor` key could authenticate but not spend account ETH on gas. Otherwise all keys had equal authority | `uint16` grant mask: SENDER, POLICY, NONCE, SELF_PAYER, SPONSOR_PAYER, with bits 5-15 spare. Current grants landed in PR #11918; width and packing changed in PR #12135 |
 | **Admin authority** | Not a formal concept (no scope model existed) | Predicate `scope == 0x00`, not a grantable bit. A separate CONFIG bit existed briefly (PR #11388) before PR #11918 (Jul 13) replaced it with the zero-scope predicate |
-| **Account mutation fields** | Two separate fields: `account_initialization` (CREATE2 new-account creation) and `key_changes` (portable cross-chain key-change operations) | Unified typed `account_changes` array (create `0x00`, config change `0x01`, delegation `0x02`), introduced in PR #11367 (Mar 3) |
-| **Account Lock** | None | `LOCKED`/`UNLOCK_INITIATED` flags packed into the account-state slot; strict lock-then-unlock lifecycle via `applySignedLockChanges`. Introduced in PR #11367 (Mar 3), lifecycle simplified in PR #11918 (Jul 13) |
+| **Account mutation fields** | Two separate fields: `account_initialization` and `key_changes` | Unified transaction `account_changes`, plus one `applySignedAccountChanges` Keystore path for AuthorizeActor, RevokeActor, IncrementLocalEpoch, Lock, and Unlock |
+| **Local change sequencing** | One local monotonic sequence | Packed `local_epoch` and `local_sequence` (`uint32` each), with `UNSEQUENCED` changes and epoch-wide invalidation from PR #12135 |
+| **Account Lock** | None | Lock and Unlock are signed local Keystore change types; the packed state retains lock and delayed-unlock status |
+| **Contract identity flag** | None | `CONTRACT_ESTABLISHED` prevents a previously established, later code-less contract from being treated as an implicit EOA after EIP-6780 |
 | **Transaction type bytes** | `AA_TX_TYPE` and `AA_PAYER_TYPE` both `TBD` placeholders | `AA_TX_TYPE = 0x79`, `AA_PAYER_TYPE = 0x7A`. First assigned `0x7B`/`0x7C` in PR #11757 (Jun 2), renumbered in PR #11903 (Jul 8) after karlb flagged that `0x7b` collided with the type used for Celo's CIP-64 fee-currency transactions on the OP Stack (forum posts #20-22) |
 | **Nonce system** | 2D `nonce_key` (uint192) / `nonce_sequence` (uint64) via a Nonce Manager precompile; no nonce-free mode | 2D `nonce_key` (uint256) / `nonce_sequence` (uint64), still two RLP fields; nonce-free mode via the `NONCE_KEY_MAX` sentinel (`2^256-1`), hardened by `replay_id` deduplication. Nonce-free mode introduced in PR #11478 (Apr 2), `replay_id` added in PR #11752 (Jun 2) |
+| **Transaction validity** | One optional Unix-seconds `expiry` | Millisecond `valid_after` and `valid_before` window; nonce-free mode requires finite `valid_before` (PR #12135) |
+| **Address-derived actorId** | Address converted directly to `bytes32` without one explicit alignment rule | Right-aligned address in the low 20 bytes, `bytes32(uint256(uint160(address)))`, standardized by PR #12173 |
 | **Default EOA revocation** | An empty `key_config` slot meant the implicit EOA key was authorized; revocation used an explicit `revoked` bit in `key_policy` | Explicit `DEFAULT_EOA_REVOKED` bit in the packed account-state slot; `createAccount`/`importAccount` revoke the implicit EOA owner by default unless re-registered. Revocation relocated to a `REVOKED_AUTHENTICATOR` sentinel in PR #11478 (Apr 2), then folded into the `DEFAULT_EOA_REVOKED` state flag with the default flipped in PR #11815 (Jun 18) |
 | **Gas sponsorship / payer modes** | Self-pay, delegate payer, K1 sponsor, and "verifier sponsor," with no scope-gating on who could act as payer | Single PAYER grant split into SELF_PAYER (`payer == sender`) and SPONSOR_PAYER (`payer != sender`), each independently gated. PAYER bit introduced in PR #11388 (Mar 9), split in PR #11918 (Jul 13) |
 | **Canonical authenticator set** | None. No canonical/allowlisted set concept existed | Canonical Authenticator Set (k1, p256, passkey, delegate), maintained via a companion ERC; nodes MUST accept the baseline set. Introduced as the "canonical verifier set" in PR #11647 (May 11), renamed with the authenticator terminology in PR #11785 (Jun 9) |
@@ -24,7 +29,7 @@ The "Original (Oct 14)" column reflects the baseline established by [PR #11186](
 | **Transaction Context mechanism** | EIP-1153 transient storage (TSTORE) directly on the Account Configuration Contract (`getCurrentPayer()`/`getCurrentSigner()`) | Dedicated Transaction Context precompile at `TX_CONTEXT_ADDRESS` (`ITransactionContext`: `getTransactionSender`/`getTransactionPayer`/`getTransactionSenderActorId`). Precompile introduced in PR #11388 (Mar 9), dropping `requires: 1153`; naming finalized in PR #11764 (Jun 4) |
 | **ERC-1271 signing authority** | No distinct signing model prior to the scope system; once introduced, any key with the SIGNATURE bit could sign | Reframed as "operational authority": `admin \|\| (SENDER && !POLICY)`. Standalone SIGNER bit removed in PR #11918 (Jul 13) |
 | **Metadata / opaque annotation field** | None | Dedicated opaque, signed `metadata` transaction field, resolving a month-long debate between draft PRs #11578 (`opaque_input`) and #11655 (metadata sink). Shipped in PR #11805 (Jun 15) |
-| **`requires` header** | `1153, 2718` | `170, 2718`. `1153` dropped in PR #11388 (Mar 9); `7702` added in PR #11367 (Mar 3) and dropped in PR #11492 (Apr 14); `170` added in PR #11609 (Jun 2) |
+| **`requires` header** | `1153, 2718` | `155, 170, 712, 1271, 1559, 2028, 2718, 2929, 4337, 6780, 7702, 7708, 7819`, expanded in PR #12135 to state the actual dependency surface |
 
 ## Key Philosophical Shifts
 
@@ -46,11 +51,12 @@ In the original model an empty `key_config` slot meant the implicit EOA key was 
 
 ## Active Proposals That May Change the Comparison
 
-*As of July 28, 2026, two PRs remain open against EIP-8130 that would extend this comparison table.*
+*As of August 20, 2026, three PRs remain open against EIP-8130 that could extend this comparison table.*
 
 | Proposal | PR | Impact |
 |---|---|---|
 | **Opaque input bytes field** | [#11578](https://github.com/ethereum/EIPs/pull/11578) | Would restore a tx-level `opaque_input` metadata role mirroring the legacy `input` field, for attribution suffixes such as ERC-8021. Superseded in spirit by the merged `metadata` field (PR #11805), which took a different, calls-model approach; chunter-cb responded favorably to the general idea but pointed at his own alternative draft (PR #11655, since closed). Likely needs reconciliation with #11805's shipped design rather than a merge as-is |
 | **Expiry at create and import** | [#11919](https://github.com/ethereum/EIPs/pull/11919) | Would add an optional `uint48 expiry` to each initial actor at `createAccount`/`importAccount` time, previously only settable via a post-deployment config change. Commits `expiry` into the per-actor address-derivation preimage so a front-runner cannot alter it. Opened the same day PR #11918 merged, as a direct extension of that PR's `policyData`-at-create work; no review comments yet |
+| **Adoption profiles and bounded authentication** | [#12204](https://github.com/ethereum/EIPs/pull/12204) | Would define permissive L1 and canonical-only L2 profiles, cap authenticator gas, expose transaction context during authentication, and accept second or millisecond timestamps. Open with no review comments at the August 20 snapshot |
 
-If either PR merges, the "Not expressible at create" and "Not expressible at import" gaps noted in the current spec for `expiry` would close, and the metadata-field row above would need a note on whether `opaque_input` and `metadata` end up coexisting or converging.
+If #11919 merges, the create/import expiry gap closes. If #11578 merges, the metadata row needs reconciliation. If #12204 merges, the validity, authenticator, transaction-context, and gas rows all change.
