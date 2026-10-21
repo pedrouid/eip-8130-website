@@ -1,9 +1,9 @@
 import { defineConfig } from "vitepress";
 
 const SITE_URL = "https://eip8130.io";
-const SITE_NAME = "EIP-8130 Account Configuration";
+const SITE_NAME = "EIP-8130 Keystore Accounts";
 const SITE_DESCRIPTION =
-  "Native account abstraction for Ethereum without executing wallet code during validation. Declarative authenticator contracts, portable cross-chain accounts, and predictable mempool safety. Research, analysis, and implementation tracking for EIP-8130 Account Abstraction by Account Configuration.";
+  "Native account abstraction for Ethereum without executing wallet code during validation. Declarative authenticator contracts, portable cross-chain accounts, and predictable mempool safety. Research, analysis, and implementation tracking for EIP-8130 Keystore Accounts.";
 const OG_IMAGE = `${SITE_URL}/og-image.png`;
 const TWITTER_IMAGE = `${SITE_URL}/twitter-card.png`;
 
@@ -31,7 +31,7 @@ export default defineConfig({
       {
         name: "keywords",
         content:
-          "EIP-8130, Account Configuration, Ethereum, account abstraction, native AA, authenticator, actor, ERC-4337, ERC-4337 alternative, declarative validation, gas sponsorship, payer, cross-chain accounts, canonical authenticator set",
+          "EIP-8130, Keystore Accounts, Keystore, EIP-8430, Account Configuration, Ethereum, account abstraction, native AA, authenticator, actor, ERC-4337, ERC-4337 alternative, declarative validation, gas sponsorship, payer, cross-chain accounts, canonical authenticator set",
       },
     ],
     ["meta", { name: "robots", content: "index, follow" }],

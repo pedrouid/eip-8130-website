@@ -21,7 +21,7 @@ A companion proposal, "Token Gas Payments for EIP-8130" (PR #11194), was opened 
 
 ## What the Original Submission Proposed
 
-The core shape of the original submission is recognizable in today's spec: a new EIP-2718 transaction type paired with an onchain "Account Configuration" system contract that separates authentication (resolving a signature to an authorized entity) from account logic (what that entity may do). That separation, and the pitch that nodes can filter transactions on authenticator identity rather than simulating arbitrary wallet code, was present from the first merged draft.
+The core shape of the original submission is still recognizable, though it is now split across two proposals: a new EIP-2718 transaction type (since October carried by EIP-8430) paired with an onchain "Account Configuration" system contract (now the Keystore, the whole of EIP-8130) that separates authentication (resolving a signature to an authorized entity) from account logic (what that entity may do). That separation, and the pitch that nodes can filter transactions on authenticator identity rather than simulating arbitrary wallet code, was present from the first merged draft.
 
 **Frontmatter**: `eip: 8130`, `requires: 1153, 2718`. The original submission required EIP-1153 (transient storage) in addition to EIP-2718 (typed transactions). EIP-1153 was dropped later once the Transaction Context mechanism moved off transient storage (see below). EIP-7702 and EIP-170 were added and removed at different points afterward; neither was in the original `requires:` line.
 
@@ -74,7 +74,7 @@ Compared to the spec as it stands today (see [Current Spec](/current-spec) and [
 - **No `requires: 170` (EIP-170 max code size).** This was added in PR #11609 after a review comment converging on matching CREATE2 freshness semantics.
 - **No metadata field.** The opaque, signed `metadata` transaction field used today for attribution and annotation purposes did not exist; it was the result of a monthslong design debate (draft PRs #11578 and #11655) resolved in PR #11805 (June 15).
 - **No delegate-authenticator payer-hash binding.** The original submission's delegate verifier had no protection against a cross-account replay of a payer's vouching signature; this gap was closed in PR #11808 (June 16), after real exploitability was identified.
-- **No "operational authority" framing for signing.** Signing was originally just "any key with SIGNATURE scope." By PR #11918, the standalone SIGNER bit was removed entirely and ERC-1271 signing was reframed as a derived property (`operational := admin || (SENDER && !POLICY)`) rather than its own grant.
+- **No "operational authority" framing for signing.** Signing was originally just "any key with SIGNATURE scope." By PR #11918, the standalone SIGNER bit was removed entirely and ERC-1271 signing was reframed as a derived property (`operational := admin || (SENDER && !POLICY)`) rather than its own grant; PR #12333 later simplified it to admin or any `OPERATOR` scope.
 
 ---
 

@@ -4,7 +4,7 @@
 
 ## TL;DR
 
-EIP-8130's developer bet is structural: replace arbitrary sender-account validation with a small canonical authenticator set, and standardize account configuration around a shared Keystore at `KEYSTORE_ADDRESS`. That promises a predictable wallet integration surface, but makes canonical-set growth a coordination question. "No new opcodes" is narrower than "no new protocol surface": clients still need a new transaction type, system contracts, precompiles, and replay rules. Base publishes a reference implementation and builder guide, while ERC-8168 and ERC-8340 remain open.
+EIP-8130's developer bet is structural: replace arbitrary account validation with a small canonical authenticator set, and standardize account authority around a shared Keystore at `KEYSTORE_ADDRESS`. Since October that Keystore is its own proposal, "Keystore Accounts," while the transaction type lives in the open EIP-8430 draft. The split gives wallets a clearer staging path (adopt the transaction for EOAs first, the Keystore later) and that is exactly how Base's production plans now read: Cobalt shipped on September 30 without EIP-8130, Everest plans EIP-8430 with no date, and the Keystore is gated to a fork Base never schedules on mainnet. "No new opcodes" remains narrower than "no new protocol surface." ERC-8168 now spans both EIP-8430 and EIP-8141, while ERC-8340 has gone stale.
 
 ---
 
@@ -12,13 +12,11 @@ EIP-8130's developer bet is structural: replace arbitrary sender-account validat
 
 EIP-8130's core adoption pitch is that nodes filter transactions by **authenticator identity** rather than executing arbitrary wallet code: "nodes can see exactly what computation a transaction requires before executing it... accepting transactions whose authenticator belongs to a small, standard canonical set and rejecting the rest" (spec Motivation). Any contract implementing `IAuthenticator` can be permissionlessly deployed, but only authenticators in the **canonical set** are usable to authenticate transactions directly over the "8130 path"; non-canonical authenticators remain usable only inside ordinary EVM execution (e.g., a wallet-defined recovery call), not for direct AA-transaction authentication.
 
-The original submission named five well-known verifiers: K1, P256, WebAuthn P256, BLS, and DELEGATE. PR #11647 made a canonical baseline explicit; PR #11651 tightened the current rule to say nodes `SHOULD NOT` extend the allowlist with non-canonical authenticators. The current four-entry set drops BLS. The spec points to a **companion ERC (number TBD)** for canonical contracts, but does not yet spell out the client-activation process for membership changes.
-
-Open PR [#12204](https://github.com/ethereum/EIPs/pull/12204) proposes a permissive bounded-authenticator L1 profile and a canonical-only L2 profile. If merged, wallet SDKs would need to distinguish profile capabilities rather than assume one universal admission model.
+The original submission named five well-known verifiers: K1, P256, WebAuthn P256, BLS, and DELEGATE. PR #11647 made a canonical baseline explicit; the current four-entry set drops BLS. PR [#12204](https://github.com/ethereum/EIPs/pull/12204) (merged Aug 19) replaced the old "SHOULD NOT extend the allowlist" rule with an acceptance policy: permissive chains (typically L1) also accept any authenticator within `MAX_AUTHENTICATION_GAS`, canonical-only chains (typically L2) do not. On a base layer the canonical set changes only by hard fork. Wallet SDKs therefore need to know a chain's policy rather than assume one admission model.
 
 **Position (Bear Case)**: growing the canonical authenticator set requires a companion-ERC-and-node-allowlist coordination cycle, which is slower than shipping a new validator/module in a permissionless smart-account ecosystem.
 
-This is editorial analysis, not a sourced external position; no public PR comment or forum post argues this explicitly. But it follows from the mechanics above: a new signature scheme (say, a post-quantum scheme a wallet wants to ship next quarter) is not something that wallet can add unilaterally by deploying a contract and pointing users at it, the way an ERC-4337 account can adopt a new validator module or an ERC-7579 account can install a new module today. It has to go through the companion-ERC process and get picked up by node operators' allowlists before it authenticates transactions on the "8130 path," rather than falling back to ordinary EVM execution that is neither AA-priced nor mempool-filterable. The spec forbids nodes from unilaterally extending the set ("SHOULD NOT extend the allowlist with non-canonical authenticators"), which is precisely the lever a bear case would point to: no single client or wallet vendor can widen the canonical set on its own schedule.
+This is editorial analysis, not a sourced external position; no public PR comment or forum post argues this explicitly. But it follows from the mechanics above: a new signature scheme (say, a post-quantum scheme a wallet wants to ship next quarter) is not something that wallet can add unilaterally by deploying a contract and pointing users at it, the way an ERC-4337 account can adopt a new validator module or an ERC-7579 account can install a new module today. On a canonical-only chain it has to go through the companion-ERC process first; on L1 canonical status takes a hard fork. A permissive chain softens this by accepting the new authenticator within the gas cap, but at metered rather than enshrined cost. No single client or wallet vendor can widen the canonical set on its own schedule.
 
 **Position (Bull Case)**: a small, canonical, protocol-recognized authenticator set is exactly what removes the current multi-standard integration burden from wallet and app developers.
 
@@ -28,7 +26,7 @@ Also editorial analysis (no directly attributed forum/PR quote makes this exact 
 
 ## 2. Cross-Chain Portability as an Adoption Driver
 
-A second pillar is architectural: the Keystore is deployed at a shared `KEYSTORE_ADDRESS`, and the spec's Abstract describes common cross-chain account-management infrastructure. PR [#12135](https://github.com/ethereum/EIPs/pull/12135) renamed the contract and made the Base implementation authoritative for internal mechanics. Concretely:
+A second pillar is architectural: the Keystore is deployed at a shared `KEYSTORE_ADDRESS`, and the spec's motivation names portability "a top concern," with one set of contracts and one signed change format across chains and transports. PR [#12135](https://github.com/ethereum/EIPs/pull/12135) made the Base implementation authoritative for internal mechanics. Concretely:
 
 - **CREATE2 addresses derive from an `actors_commitment`**, not a factory nonce. Matching infrastructure, salt, actors, and bytecode can reproduce the same address, but the account still has to be deployed on each chain.
 - **Actor changes have a multichain signature domain**: `chainId = 0` lets the same signed message be submitted on multiple chains. It does not broadcast the change; a relayer must submit it separately to each deployment and respect each chain's sequence state.
@@ -52,15 +50,17 @@ EIP-8130 requires no new EVM opcodes. This contrasts with EIP-8141, which now ad
 
 But "no new opcodes" understates the new consensus-critical surface EIP-8130 introduces:
 
-- A new EIP-2718 transaction type (`AA_TX_TYPE`, renumbered from `0x7B` to `0x79` in PR #11903, July 8, 2026) with its own RLP encoding, signature-hash construction (with domain-separated sender vs. payer hashes via `AA_TX_TYPE`/`AA_PAYER_TYPE` magic bytes), and a distinct field list including two-dimensional nonces.
-- A **Nonce Manager precompile** at `NONCE_MANAGER_ADDRESS` managing 2D nonce state (`nonce_key`/`nonce_sequence`) plus a consensus-level nonce-free replay-protection mode with a fixed-capacity circular buffer (`REPLAY_BUFFER_CAPACITY`), which the spec is explicit is "consensus state, not per-node bookkeeping."
-- A **Transaction Context precompile** (`TX_CONTEXT_ADDRESS`), introduced in PR #11388 to replace an earlier EIP-1153-transient-storage-based design, exposing `getTransactionSender()`/`getTransactionPayer()` etc. to in-flight EVM execution.
-- A **Keystore** at `KEYSTORE_ADDRESS` handling actor authorization, account creation, local epochs, multichain sequencing, and lock state.
-- A native `ecrecover`-shortcut path for `K1_AUTHENTICATOR` (`address(1)`) that bypasses STATICCALL entirely, meaning even the "just call the authenticator contract" model has a protocol-level special case baked in.
+- A new EIP-2718 transaction type (`AA_TX_TYPE = 0x79`), now specified by EIP-8430, with domain-separated sender and payer hashes, phased calls with native value, open and bound payer modes, and a receipt phase count.
+- A **Nonce Manager precompile** at `NONCE_MANAGER_ADDRESS` for parallel nonce lanes plus a consensus nonce-free mode with a fixed-capacity `replay_id` ring buffer.
+- A **Transaction Context precompile** (`TX_CONTEXT_ADDRESS`): EIP-8430 defines `getTransactionPayer()` for every transaction type, and the Keystore integration adds sender, calls, and gas-limit getters readable during authentication.
+- A **Keystore** at `KEYSTORE_ADDRESS` handling actor authorization, account creation and import, local epochs, multichain sequencing, and lock state, which a chain may enshrine natively or leave as EVM execution.
+- A native `ecrecover` path for `K1_AUTHENTICATOR` (`address(1)`), an EIP-7623-style calldata floor, and `MAX_AUTHENTICATION_GAS` accounting outside `gas_limit`.
 
 **Position**: "no new opcodes" lowers the bar specifically for EVM-interpreter maintainers, but not for full node implementers. The precompiles, Keystore, new transaction validation, local epochs, and consensus replay buffer are new state-transition surface regardless of whether they are expressed as opcodes.
 
-This is editorial analysis; no public forum post or PR comment frames the tradeoff in these terms. The spec's own Intrinsic Gas section reserves repricing flexibility, stating "the formula's structure... is the normative part; the absolute numbers... are the recommended values," and a dedicated PR (#11813, "doc-only," June 17) clarifies the intrinsic-gas schedule is "a reference, not protocol constants" so future EVM repricing (e.g. EIP-7623) does not force a spec revision.
+This is editorial analysis; no public forum post or PR comment frames the tradeoff in these terms. The gas schedule's status also moved: PR #11813 (June 17) called it "a reference, not protocol constants," but PR #12204 (Aug 19) made it protocol constants under the L1 profile, and PR #12320 (Sep 16) showed what the flexibility had missed, an absent EIP-7623 floor that let data-heavy transactions post data about 40% cheaper than type-2 transactions.
+
+The October split changes the implementer's bar in a useful way. A client can ship EIP-8430 alone, secp256k1-only and with no Keystore reads, and add the Keystore integration later; EIP-8430 even charges the Keystore's account-state read in `K1_AUTH_COST` up front so gas estimates do not change when the integration activates. Base's client does exactly this staging.
 
 A narrower reading of "lowers the bar" is about audit surface rather than raw implementation effort: fixed precompiles with bounded input/output shapes (Nonce Manager, Transaction Context) are more tractable to audit and fuzz than an opcode whose semantics interact with the EVM's stack/memory/gas model in less enumerable ways. On that framing, "no new opcodes" is closer to true.
 
@@ -68,7 +68,7 @@ A narrower reading of "lowers the bar" is about audit surface rather than raw im
 
 ## 4. Contrast with the Modular-Account (ERC-7579-style) Ecosystem Question
 
-EIP-8141's ecosystem pursues a different path to the same integration problem: modular-account composability at the **application layer** via ERC-8286 ("Modular Accounts for Frame Transactions," ERC PR #1794, still open as of August 20, 2026).
+EIP-8141's ecosystem pursues a different path to the same integration problem: modular-account composability at the **application layer** via ERC-8286 ("Modular Accounts for Frame Transactions," ERC PR #1794).
 
 The difference is worth stating precisely, since "canonical set" and "modular account" are easy to conflate as solving the same problem when they sit at different layers:
 
@@ -81,34 +81,40 @@ The difference is worth stating precisely, since "canonical set" and "modular ac
 
 The practical consequence: under EIP-8130, a new authentication scheme needs canonical-set coordination before it can authenticate an AA transaction directly. Under EIP-8141, a new account pattern can live in account code, subject to the relay policy for its validation shape. The former gives nodes a smaller trust surface; the latter gives wallet developers more unilateral freedom.
 
-No public EIP-8130-vs-ERC-8286 comparison thread exists; this contrast is constructed from the two ecosystems' documented designs, not a head-to-head debate.
+No public EIP-8130-vs-ERC-8286 comparison thread exists; this contrast is constructed from the two ecosystems' documented designs. The layers have begun to converge, though. EIP-8130 now names EIP-8141 frame accounts as Keystore consumers, and open [ERC-8403](https://github.com/ethereum/ERCs/pull/1979) (AnkushinDaniil) defines one add, rotate, and revoke lifecycle with a normative EIP-8141 binding and an informative mapping onto the EIP-8130 Keystore, backed by a [proof of concept](https://github.com/AnkushinDaniil/erc-8403-poc) that runs against the Base Keystore's `authenticateActor`.
 
 ---
 
 ## 5. Payer-Service Tooling: ERC-8168
 
-[Open ERC PR #1555](https://github.com/ethereum/ERCs/pull/1555) proposes ERC-8168, **8130 Payer Service Capability**. It reuses the ERC-7677 `paymasterService` capability while defining `payer_*` JSON-RPC methods for EIP-8130. Apps can supply the same service URL; wallets choose `pm_*` for ERC-4337 or `payer_*` for EIP-8130.
+[Open ERC PR #1555](https://github.com/ethereum/ERCs/pull/1555) proposes ERC-8168, now titled **Payer Service Capability**. It reuses the ERC-7677 `paymasterService` capability while defining `payer_*` JSON-RPC methods; offers must support `payer_sendTransaction`, `payer_signTransaction`, or both. October 5 commits retargeted it at the split: the transaction type is EIP-8430, the Keystore is EIP-8130, and EIP-8141 frame transactions are a second target, with `requires: 5792, 7677, 8130, 8141, 8430`. A Keystore Integration section now uses the current grants: a named payer co-signs with a `SPONSOR_PAYER` actor, and a self-paying open payer needs `SELF_PAYER`. September 28 added rate-based token quotes and preauthorized payers; October 19 dropped endpoint versioning.
 
-The July update added token-offer `paymentMode`. An August 11 commit aligned the transaction fields with `valid_after` and `valid_before`. An August 13 commit requires each offer to support at least one co-sign method: `payer_sendTransaction`, `payer_signTransaction`, or both. Missing `methods` remains shorthand for send-only.
-
-This is the clearest payer-tooling proposal found for EIP-8130, but it is not the canonical-authenticator-set companion ERC. It still refers to the old `PAYER` scope, which PR #11918 split into `SELF_PAYER` and `SPONSOR_PAYER`. Implementers should treat the RPC shape as open and not fully synchronized with the latest EIP-8130 terminology.
+It is the first payer-tooling proposal spanning both native-AA families, but not the canonical-set companion ERC, and has no editor review yet.
 
 ## 6. Metadata Tooling: ERC-8340
 
-[Open draft ERC PR #1883](https://github.com/ethereum/ERCs/pull/1883) proposes ERC-8340, **Transaction Metadata Encoding**, for EIP-8130's opaque `metadata` bytes. It defines deterministic CBOR forms for attribution, memos, phase/call scoping, and salted commitments to selectively disclosed offchain data. It also proposes an ERC-5792 `metadata` capability that supersedes `dataSuffix`.
-
-This fills a different gap from ERC-8168. The EIP supplies a signed but semantically inert carrier; ERC-8340 gives wallets, apps, and indexers one parser. It remains a draft, so applications must treat the bytes as optional annotations with no execution effect.
+[Open draft ERC PR #1883](https://github.com/ethereum/ERCs/pull/1883) proposes ERC-8340, **Transaction Metadata Encoding**: deterministic CBOR forms for attribution, memos, phase and call scoping, and salted commitments to offchain data, plus an ERC-5792 `metadata` capability superseding `dataSuffix`. It has had no commits since July 16 and still targets "EIP-8130's metadata field," which now lives in EIP-8430. Treat it as dormant until retargeted.
 
 ## 7. Base Rollout, Guide, and Reference Implementation
 
-In its July 17 [Native Account Abstraction announcement](https://x.com/buildonbase/status/2078132881017245881), Base named September 2026 for Cobalt and later-2026 OP Stack rollout, with [Base Vibenet](https://vibes.base.org/) as the integration surface. The current [Cobalt page](https://chain.base.org/upgrades/upgrade/cobalt) lists Sepolia and mainnet as planning for September. Base's gas and byte-size figures remain vendor claims without a published benchmark harness.
+Base's July 17 [Native Account Abstraction announcement](https://x.com/buildonbase/status/2078132881017245881) named September 2026 for Cobalt. That plan changed in Base's own client repository:
 
-The public [builder guide](https://www.eip8130.com/guide) covers account creation, calls, actor rotation, policies, payers, receipts, and Vibenet. Its TypeScript path now uses the upstream experimental `viem/experimental/eip8130` API. The guide still labels the stack experimental and the audit incomplete.
+| Date | base/base PR | Change |
+|---|---|---|
+| Sep 8 | #4924 | Moved EIP-8130 activation from Cobalt to Zenith |
+| Sep 25 | #5247, #5250 | Added the Everest upgrade and moved activation to it |
+| Sep 27 | #5232 | Delegation at `0x01` and k1-only authenticators |
+| Sep 29 | #5366 | Gated the Keystore to Zenith: "Everest has no concept of the Keystore" |
+| Oct 8 | #5451 | Relaxed pool limits; states Zenith "is never scheduled" on mainnet or Sepolia |
 
-Base's [reference implementation](https://github.com/base/eip-8130) moved rapidly in August. PRs [#46](https://github.com/base/eip-8130/pull/46), [#55](https://github.com/base/eip-8130/pull/55), [#63](https://github.com/base/eip-8130/pull/63), and [#64](https://github.com/base/eip-8130/pull/64) aligned storage, scope, typed signatures, and local epochs. PR [#76](https://github.com/base/eip-8130/pull/76) added the established-contract flag and shared initial-actor validation; [#79](https://github.com/base/eip-8130/pull/79) settled expired unsequenced grants; [#82](https://github.com/base/eip-8130/pull/82) completed the final contract-review pass. EIP PR #12135 then made this implementation the source for detailed mechanics.
+[Cobalt](https://docs.base.org/upgrades/cobalt/overview) went live on Sepolia (September 23) and mainnet (September 30) with B20 token changes and validity transactions, not EIP-8130. The [Everest page](https://docs.base.org/upgrades/everest/overview) lists "Base Transactions (EIP-8430)" as planning with no date for either network. Zenith is Base's permanently unscheduled, genesis-only testing gate, so the Keystore remains a devnet feature on Base's current plan. Base client PR #5664 (Oct 12) fixes "audit finding H-01 in the EIP-8130 audit"; no public audit report was found.
+
+[Base Vibenet](https://vibes.base.org/), which now redirects to Base's Vibenet page, remains the integration surface. The [builder guide](https://www.eip8130.com/guide) still describes EIP-8130 and `0x79` without mentioning EIP-8430 or the rename, warns that the audit cycle is unfinished, and documents its `viem/eip8130` snippets against chunter-cb's viem fork rather than an upstream viem release.
+
+Base's [reference implementation](https://github.com/base/eip-8130) last merged on September 2. Its late-August PRs drove the September EIP edits: #92 removed the established-contract flag, #95 reordered scope bits and attached policy by payload length, #97 through #100 collapsed import into `importAccount()` plus `confirmKeystoreImport()`, and #101/#103 restricted direct execution to k1 actors. Open drafts explore transient actors (#105), multichain epochs (#106), and wallet-agnostic policies (#108 onward). 
 
 ---
 
 ## Summary
 
-EIP-8130 trades permissionless validation growth for a smaller direct-authentication surface. Cross-chain reuse remains conditional, and the no-opcode design still leaves substantial client work. The upstream Viem API, ERC drafts, implementation, and Vibenet make the path concrete, but the audit and Cobalt rollout remain pre-production.
+EIP-8130 trades permissionless validation growth for a smaller direct-authentication surface, now with an explicit permissive lane on L1. The split into a Keystore EIP and EIP-8430 lets clients and wallets adopt the transaction first, and Base's production plan does exactly that: Cobalt shipped without EIP-8130, Everest plans EIP-8430 with no date, and the Keystore stays on devnets. ERC-8168 and ERC-8403 now bridge EIP-8130 and EIP-8141 at the application layer.

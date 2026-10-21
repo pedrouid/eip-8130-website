@@ -4,9 +4,9 @@
 
 ## TL;DR
 
-EIP-8130's current canonical set has no post-quantum authenticator. Its extensibility story is architectural: anyone can deploy an `IAuthenticator`, but only the future companion-ERC process and coordinated client allowlists can make it usable for direct EIP-8130 transactions. The draft does not specify how such an allowlist change activates, so “no hard fork required” is not a fact established by the text.
+EIP-8130's current canonical set has no post-quantum authenticator. Its extensibility story is architectural: anyone can deploy an `IAuthenticator`, and since PR [#12204](https://github.com/ethereum/EIPs/pull/12204) (Aug 19) the activation question has an answer. On a base layer the enshrined canonical set changes only through a hard fork; other chains may extend it through the companion ERC; and a permissive chain can accept a non-canonical PQ authenticator on the transaction path within `MAX_AUTHENTICATION_GAS`, at metered rather than enshrined cost. "No hard fork required" is therefore false for L1 canonical status.
 
-The most important comparison correction is EIP-8202. Its current canonical draft does **not** contain P-256 or Falcon-512. It defines secp256k1 plus `SCHEME_EPHEMERAL_K1`, a Merkle-committed sequence of single-use secp256k1 keys that the proposal describes as quantum-safe against retrospective key recovery. EIP-8141 takes another path: arbitrary witness bytes can be verified by account code, while the open EIP-8288 sibling explores block-level PQ/STARK aggregation.
+The most important comparison correction is EIP-8202. Its current canonical draft does **not** contain P-256 or Falcon-512. It defines secp256k1 plus `SCHEME_EPHEMERAL_K1`, a Merkle-committed sequence of single-use secp256k1 keys that the proposal describes as quantum-safe against retrospective key recovery. EIP-8141 takes another path: arbitrary witness bytes can be verified by account code, EIP-8397 adds permissionless pure authenticators at a fixed gas cost, and the merged EIP-8288 sibling specifies in-mempool signature and proof aggregation.
 
 ## 1. EIP-8130: an extension point, not a PQ scheme
 
@@ -23,18 +23,21 @@ The base transaction does not need a new field for every signature algorithm. A 
 
 There are two adoption tiers:
 
-1. **Deploy and register.** Contract deployment is permissionless, and an account admin can register the authenticator. A non-canonical authenticator can be used from ordinary EVM execution, such as a recovery flow.
-2. **Direct AA authentication.** The authenticator must join the canonical set that compliant nodes accept for block-level EIP-8130 authentication.
+1. **Deploy and register.** Contract deployment is permissionless, and an account admin can register the authenticator. It is always usable from EVM execution, such as a recovery flow, through any Keystore consumer.
+2. **Permissive transaction path.** On a chain with a permissive acceptance policy, the authenticator can authenticate EIP-8430 transactions directly if its `STATICCALL` returns within `MAX_AUTHENTICATION_GAS` (suggested 100,000). That cap matters for PQ schemes with large keys and expensive verification.
+3. **Canonical status.** Enshrined at constant cost on every native consumer: by hard fork on L1, by companion ERC elsewhere.
 
-The draft says a companion ERC will maintain the canonical set and expects it to grow with new algorithms, including post-quantum ones. The companion ERC is not yet numbered, and the draft does not define client activation or code-upgrade rules for a changed set.
+Because actors reference authenticators by address, an account adopts a newly canonical scheme by authorizing a new actor, with no migration or address change. The companion ERC is still not numbered.
 
 ## 2. What EIP-8130 does not yet provide
 
 - **No canonical PQ algorithm.** The set contains k1, p256, passkey, and delegate.
 - **No PQ wire format or `actorId` rule.** A future authenticator specification must define both.
 - **No aggregation primitive.** Each transaction is authenticated independently.
-- **No committed PQ gas schedule.** Contract authenticators may be metered as ordinary EVM, or a chain may enshrine a canonical implementation at a fixed cost.
-- **No automatic canonical-set activation.** A companion ERC can document the set, but consistent node adoption still needs a defined process.
+- **No committed PQ gas schedule.** A non-canonical PQ authenticator must fit under `MAX_AUTHENTICATION_GAS`; a canonical one would need its own enshrined constant.
+- **No fast L1 path to canonical PQ.** The process is now defined, but it is a hard fork.
+
+Open extension EIP-8388 would let EIP-1559 and EIP-2930 transactions authenticate through the Keystore, so a future PQ actor could sign ordinary transaction types too.
 
 `DEFAULT_EOA_REVOKED` is useful preparation, not cryptography. New and imported accounts do not retain an implicit secp256k1 self-actor unless they explicitly add one, which avoids accidentally leaving a classical fallback after a wallet chooses another authenticator.
 
@@ -59,7 +62,7 @@ EIP-8141's outer `signatures` list includes `ARBITRARY (0x0)`. The protocol does
 
 [PR #12011](https://github.com/ethereum/EIPs/pull/12011) proposed formalizing EIP-8141's protocol-validated scheme table as a consensus registry, with `ARBITRARY` retained for account-code experimentation. It closed without merging on July 29, so the current EIP-8141 draft still has no standalone scheme-registry process.
 
-The open EIP-8288 sibling targets a different problem: aggregating PQ signatures and STARK proofs at block level through a new frame mode and a `recursive_stark` header field. It remains an unmerged proposal under active review, not a capability in the current EIP-8141 draft or a deployed Ethereum feature.
+EIP-8288 targets a different problem: aggregating PQ signatures and STARK proofs. It merged as a Draft on September 9 (PR #11772) and was renamed "In-mempool signature and proof aggregation"; its `DEP_VERIFY_FRAME_MODE` moved to `4` in PR #12309. EIP-8397 (merged October 14) adds an `AUTHENTICATOR` scheme: a permissionless contract returns a `key_id` from `authenticate(digest, proof)` in an enforced pure context at a fixed 52,600 gas. That is EIP-8130's interface without a canonical set, and a direct route for PQ verifiers. Neither is deployed.
 
 EIP-8175's current draft defines secp256k1 and Ed25519. Draft PR #11431 proposes Falcon-512, but it is not merged.
 
@@ -67,8 +70,8 @@ EIP-8175's current draft defines secp256k1 and Ed25519. Draft PR #11431 proposes
 
 | Proposal | Current draft's PQ mechanism | Adding another scheme | Aggregation |
 |---|---|---|---|
-| EIP-8130 | None in the canonical set | Deploying is permissionless; direct AA use needs canonical-set specification and coordinated client adoption | None specified |
-| EIP-8141 | Custom verifier through `ARBITRARY` witness bytes and account code | Account code can implement another verifier; registry PR #12011 closed without merge | Open sibling EIP-8288 proposes block-level aggregation |
+| EIP-8130 | None in the canonical set | Deploying is permissionless; permissive chains accept it within a gas cap; canonical status takes a hard fork on L1 | None specified |
+| EIP-8141 | Custom verifier through `ARBITRARY` witness bytes, account code, or an EIP-8397 authenticator | Permissionless; registry PR #12011 closed without merge | Merged sibling EIP-8288 specifies in-mempool aggregation |
 | EIP-8175 | None; secp256k1 and Ed25519 only | New protocol signature type; Falcon-512 is an open draft PR | None specified |
 | EIP-8202 | `SCHEME_EPHEMERAL_K1`, based on single-use Merkle-committed ECDSA keys | A distinct EIP registers another `scheme_id`; no envelope redesign | None specified |
 | Tempo-like gist | None; secp256k1, P-256, and WebAuthn | Transaction-format change and client activation | None specified |
@@ -80,13 +83,12 @@ This table describes draft specifications, not deployed support.
 The EIP-8130 analysis would materially change if any of the following lands:
 
 - a numbered companion ERC with immutable canonical authenticator definitions;
-- a concrete PQ authenticator with wire format, `actorId` derivation, test vectors, and gas analysis;
-- a defined client-activation process for canonical-set changes;
-- merged crypto-agility and L1/L2 adoption-profile language from open EIP-8130 [PR #12204](https://github.com/ethereum/EIPs/pull/12204);
-- a signature aggregation or proof-compression proposal.
+- a concrete PQ authenticator with wire format, `actorId` derivation, test vectors, and gas analysis showing it fits `MAX_AUTHENTICATION_GAS`;
+- a hard-fork proposal adding a PQ scheme to an L1 canonical set;
+- a signature aggregation or proof-compression proposal for the Keystore path.
 
-Until then, the accurate summary is: EIP-8130 has an interface and governance slot for a future PQ authenticator, not a PQ scheme or an aggregation system.
+Until then, the accurate summary is: EIP-8130 has an interface and a defined governance path for a future PQ authenticator, not a PQ scheme or an aggregation system.
 
 ## Summary
 
-EIP-8130 avoids baking algorithm-specific fields into its transaction envelope, which is useful scheme agility. The direct AA path is not permissionless, however; canonical membership and client adoption remain coordinated and underspecified. EIP-8202 currently offers a concrete but unusual hash-based migration strategy through single-use secp256k1 keys, not Falcon-512. EIP-8141 offers programmable verification and an unmerged aggregation direction. None of these proposals is active on Ethereum mainnet, and their different uses of “post-quantum” should not be treated as equivalent.
+EIP-8130 avoids baking algorithm-specific fields into any transaction envelope, which is useful scheme agility. Its direct path is permissionless only on permissive chains and only within a gas cap; canonical membership on L1 is fork-paced. EIP-8202 currently offers a concrete but unusual hash-based migration strategy through single-use secp256k1 keys, not Falcon-512. EIP-8141 offers programmable verification, permissionless EIP-8397 authenticators, and a merged aggregation draft. None of these proposals is active on Ethereum mainnet, and their different uses of “post-quantum” should not be treated as equivalent.

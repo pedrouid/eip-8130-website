@@ -1,77 +1,139 @@
 # Current Spec
 
-EIP-8130, "Account Abstraction by Account Configuration," is a Core, Standards Track proposal by Chris Hunter (@chunter-cb, Coinbase/Base), created 2025-10-14, with 43 merged PRs against the spec file as of 2026-08-20. Its frontmatter now requires EIPs 155, 170, 712, 1271, 1559, 2028, 2718, 2929, 4337, 6780, 7702, 7708, and 7819.
+EIP-8130, now titled **"Keystore Accounts,"** is a Core, Standards Track proposal by Chris Hunter (@chunter-cb, Coinbase/Base), created 2025-10-14, with 49 merged PRs against the spec file as of 2026-10-21. PR [#12295](https://github.com/ethereum/EIPs/pull/12295) (Sep 3) replaced the original title, "Account Abstraction by Account Configuration." PR [#12386](https://github.com/ethereum/EIPs/pull/12386) (Oct 8) then scoped the EIP to the Keystore alone and moved the transaction type into a separate proposal, [EIP-8430](https://github.com/ethereum/EIPs/pull/12385) ("AA Transaction Type"). The frontmatter now requires only EIPs 170 and 1014.
 
 ::: warning Proposal status
-This page summarizes the canonical **Draft**. EIP-8130 is not finalized, scheduled for an Ethereum L1 hard fork, or active on Ethereum mainnet. Base lists EIP-8130 in the [Cobalt upgrade](https://chain.base.org/upgrades/upgrade/cobalt), with both Sepolia and mainnet in planning for September 2026. Present-tense wording below describes the proposal's rules, not a deployed Ethereum feature. Open PRs are called out explicitly.
+This page summarizes the canonical **Draft**. EIP-8130 is not finalized, scheduled for an Ethereum L1 hard fork, or active on Ethereum mainnet. EIP-8430, which now carries the transaction format, exists only as open PR #12385 and has no merged text in the EIPs repository. Base's [Cobalt upgrade](https://docs.base.org/upgrades/cobalt/overview) went live on Sepolia (Sep 23) and mainnet (Sep 30) **without** EIP-8130. Its [Everest upgrade](https://docs.base.org/upgrades/everest/overview) now plans "Base Transactions (EIP-8430)" with no date, and Base's client gates the Keystore behind a test-only fork that is never scheduled on Base mainnet or Sepolia. Present-tense wording below describes the proposal's rules, not a deployed Ethereum feature. Open PRs are called out explicitly.
 :::
 
-The central design separates authentication from account logic. A node can admit a transaction by checking the identity of its authenticator against a small canonical set, instead of executing arbitrary wallet bytecode to discover whether the transaction is valid.
+The central design still separates authentication from account logic: an authenticator answers "who signed," and the Keystore answers "what may that actor do." What changed in October is where that separation lives. The Keystore is now specified as **transport-neutral** infrastructure usable through ordinary EVM calls, ERC-4337 accounts, EIP-8141 frame accounts, and natively by EIP-8430. Neither EIP requires the other.
 
 Spec source: [github.com/ethereum/EIPs/blob/master/EIPS/eip-8130.md](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-8130.md). Discussion: [ethereum-magicians.org/t/eip-8130-account-abstraction-by-account-configurations/25952](https://ethereum-magicians.org/t/eip-8130-account-abstraction-by-account-configurations/25952).
 
 ---
 
-## Keystore, actorId, and scope
+## What the EIP Covers After the Split
 
-PR [#12135](https://github.com/ethereum/EIPs/pull/12135) renamed the Account Configuration Contract to the **Keystore** and aligned the specification with the audited reference contracts. The system contract at `KEYSTORE_ADDRESS` stores actor authorization, account state, local and multichain change sequencing, and lock state. Detailed storage and function behavior now lives in the canonical [Base implementation](https://github.com/base/eip-8130); the EIP defines the consensus requirements around it.
+| Lives in EIP-8130 (merged) | Lives in EIP-8430 (open PR #12385) |
+|---|---|
+| Keystore state, actors, scope, expiry, policies | `AA_TX_TYPE = 0x79` wire format and `AA_PAYER_TYPE = 0x7A` payer domain |
+| Signed account changes, local and multichain channels, epochs | 2D nonces (`nonce_key 0` is the account nonce), nonce-free mode, `replay_id` |
+| Account lock, creation, import | Phased `calls` with native value, bound and open payer modes |
+| `authenticateActor` / `validateSignature`, canonical authenticator set | Delegation entry (`0x01`), intrinsic gas, fees, receipts, RPC |
+| The integration rules a consumer must follow, including EIP-8430's native path | Extension points: authenticator selector, authorization-rules hook, reserved account-change types |
 
-An **actor** is an authority-holder on an account, such as an owner, session key, or payer-only key. Each actor is identified by a 32-byte `actorId` derived by its authenticator.
+Without the Keystore, EIP-8430 is a secp256k1-only batching and sponsorship transaction for today's EOAs. EIP-8130's "AA Transaction Type Integration" section fills its extension points with Keystore authentication, scopes, and two account-change entries.
+
+---
+
+## Keystore, Actors, and actorId
+
+The Keystore is a contract at `KEYSTORE_ADDRESS` that maps each account to its configured **actors** and handles actor authorization, account creation, change sequencing, and account lock. Its storage packing, typehashes, events, and function bodies live in the canonical [`base/eip-8130`](https://github.com/base/eip-8130) repository (`src/Keystore.sol`), which the EIP names as authoritative for contract internals.
+
+An **actor** is an authority-holder on an account, such as an owner, session key, or payer-only key, identified by a 32-byte `actorId` that its authenticator derives from key material. Address-derived actorIds are right-aligned, `bytes32(uint256(uint160(address)))`, standardized by PR [#12173](https://github.com/ethereum/EIPs/pull/12173).
 
 ### `actor_config` packing
 
-An actor configuration occupies one 32-byte word:
+Consumers read one slot per actor directly, so its packing is normative:
 
 ```
 authenticator (20 bytes) || expiry (6 bytes) || scope (2 bytes) || reserved (4 bytes)
 ```
 
-`expiry` is a `uint48` Unix-seconds timestamp. Zero means no expiry. `scope` is now a `uint16`; the upper 11 bits remain reserved. The four reserved bytes must be zero so future layouts fail closed on older deployments. A `POLICY` actor also has a policy manager and commitment stored separately.
-
-### Address-derived actorIds
-
-PR [#12173](https://github.com/ethereum/EIPs/pull/12173) standardized address-derived actor IDs as right-aligned addresses:
-
-```
-actorId = bytes32(uint256(uint160(address_value)))
-```
-
-The high 12 bytes are zero and the address occupies the low 20 bytes. This applies to native secp256k1 recovery, the implicit self actor, and delegate actors.
+`expiry` is a `uint48` Unix-seconds timestamp (zero means none). `scope` is a `uint16` grant mask. Reserved bytes must be zero, which acts as a version gate. Revocation deletes the slot. The **self-actor** (the account's own address as `actorId`) is held inline in the packed account-state slot instead. Actor enumeration is done off-chain through `ActorAuthorized` and `ActorRevoked` logs.
 
 ### Scope grants
 
-Scope is a `uint16` bitmask of grants. Zero is the admin predicate, not a separate bit.
+PR [#12333](https://github.com/ethereum/EIPs/pull/12333) (Sep 14) reordered the bits to match the canonical `Scopes.sol` and renamed `SENDER` to `OPERATOR`:
 
 | Bit | Value | Name | Grants |
 |---|---|---|---|
-| 0 | `0x0001` | `SENDER` | Initiate calls without a policy gate; also operational for ERC-1271 unless combined with `POLICY` |
-| 1 | `0x0002` | `POLICY` | Initiate calls only through the actor's policy manager |
-| 2 | `0x0004` | `NONCE` | Use sequenced nonce channels rather than only nonce-free mode |
-| 3 | `0x0008` | `SELF_PAYER` | Pay gas when payer and sender are the same account |
-| 4 | `0x0010` | `SPONSOR_PAYER` | Pay gas for a different sender |
+| 0 | `0x01` | `OPERATOR` | Ungated initiation to any target; also **operational** authority for ERC-1271 signing |
+| 1 | `0x02` | `SELF_PAYER` | Pay the account's own gas |
+| 2 | `0x04` | `SPONSOR_PAYER` | Pay gas for a different sender |
+| 3 | `0x08` | `POLICY` | Gated initiation only to the actor's `policy_manager` (optional grant) |
+| 4 | `0x10` | `NONCE` | Use a consumer's sequenced nonce channels (optional grant) |
 | 5-15 | | spare | Reserved for future pure grants |
 
-Admin authority is required to authorize or revoke actors, increment the local epoch, lock or unlock an account, and apply multichain changes. Operational ERC-1271 authority is `admin || (SENDER && !POLICY)`.
+`scope == 0x00` is the **admin** predicate: required for `AuthorizeActor`, `RevokeActor`, every signed batch, and code delegation. Reads fail closed, and unknown bits grant nothing. `OPERATOR` is not suppressed by `POLICY`: an `OPERATOR | POLICY` actor is an ungated operator, so wallets should not set both. The spec summarizes it as: "length decides what gets stored; `POLICY` decides whether the sender is gated; `OPERATOR` overrides `POLICY`." Operational authority for ERC-1271 is now admin or any scope carrying `OPERATOR`.
 
-An actor is live when `expiry == 0 || block.timestamp <= expiry`. An expiring sole admin can brick an account, so the specification recommends expiry only for non-admin actors.
+| Actor | Nonce channels allowed |
+|---|---|
+| Admin | Any, including unsequenced (nonce-free) |
+| Restricted, `NONCE` unset | Unsequenced (nonce-free) only |
+| Restricted, `NONCE` set | Any |
 
-### Signed account changes
+An actor is live when `expiry == 0 || now <= expiry`. Only the acting key's own expiry is checked; authorizer lineage is never walked. Initial actors are always non-expiring (open PR #11919 would change that), and the spec warns that an expiring sole admin can brick an account and break cross-chain reconstruction.
 
-The Keystore exposes one `applySignedAccountChanges` path. A signed change selects a channel and one of five operations:
+### Actor policies
 
-- `AuthorizeActor` — install or replace an actor configuration.
-- `RevokeActor` — remove an actor. Revoking the self actor disables both the explicit and implicit path.
-- `IncrementLocalEpoch` — invalidate unlanded local signatures from the current epoch. It may ride either channel but always changes local epoch state.
-- `Lock` — freeze configuration changes and start the lock lifecycle.
-- `Unlock` — initiate the delayed unlock.
-
-The **local channel** packs `local_epoch` and `local_sequence` as two `uint32` values inside a signed `uint64`. `UNSEQUENCED` changes may be applied in any order within the current epoch; `IncrementLocalEpoch` invalidates any that have not landed. The **multichain channel** remains a monotonic `uint64` sequence and can authorize a change signed for `chain_id = 0` across chains.
-
-PR [#12148](https://github.com/ethereum/EIPs/pull/12148) clarified batch behavior. An already-expired unsequenced `AuthorizeActor` entry is skipped while live sibling entries still apply. A sequenced local or multichain grant may be installed already expired and is simply inert.
+Two decisions are separate. Whether policy slots are **written** depends only on the length of `policyData` on the authorizing change: empty clears them; exactly 52 bytes (`manager (20) || commitment (32)`) writes `policy_manager` and `policy_commitment`; anything else is rejected. Whether the sender is **gated** depends on the consumer seeing `POLICY` without `OPERATOR`. A gated actor may only target its manager, cannot carry top-level value, and a `POLICY` actor with no stored manager is gated to `address(0)`. The manager reads the commitment, validates presented parameters, and is fully trusted to enforce limits.
 
 ---
 
-## Authenticator Interface
+## Signed Account Changes
+
+All actor and lock changes travel in one `SignedAccountChanges` batch, applied through `applySignedAccountChanges(account, batch)` or a consumer's native path carrying the same bytes:
+
+```
+SignedAccountChanges = (channel, sequence, changes, signature)
+// channel 0 = Local (binds block.chainid), 1 = Multichain (binds chain_id 0)
+// Local sequence = local_epoch (high 32) || local_sequence (low 32)
+// Multichain sequence = plain monotonic uint64 counter
+```
+
+| Type | Change | Notes |
+|---|---|---|
+| `0` | `AuthorizeActor` | Upserts `actor_config`; `policyData` empty or 52 bytes |
+| `1` | `RevokeActor` | Deletes the actor and its policy slots; a k1 self-actor is revoked by setting `DEFAULT_EOA_REVOKED` |
+| `2` | `IncrementLocalEpoch` | Either channel; bumps `local_epoch` and resets `local_sequence` |
+| `3` | `Lock` | Local only, sole change in its batch |
+| `4` | `Unlock` | Local only, sole change in its batch |
+
+Each batch carries one admin signature over an EIP-712-style digest binding account, resolved chain ID, sequence word, and the ordered changes. On the local channel a sequence whose low half equals `UNSEQUENCED` (`2^32 - 1`) is a just-in-time batch that consumes no counter and stays replayable until the epoch moves. Expiry on `AuthorizeActor` never reverts: an already-lapsed grant is skipped on the unsequenced path and installed inert on single-consume paths, so catching-up chains never strand a counter. The multichain channel has no epoch or unsequenced mode in the merged text; open PRs [#12334](https://github.com/ethereum/EIPs/pull/12334) and [#12462](https://github.com/ethereum/EIPs/pull/12462) would add both.
+
+### Account lock
+
+Lock state shares one packed account-state slot with the change channels, a flags byte, and the inline self-actor config; consumers may read it directly. While `LOCKED`, every authority change and code delegation is rejected; only `Unlock` and `IncrementLocalEpoch` remain. `unlock_delay` is bounded to `uint16` seconds (about 18.2 hours). Unlock starts the delay, and the account is unlocked once `block.timestamp >= unlocks_at`. Open PR #12462 would remove account lock entirely.
+
+PR [#12250](https://github.com/ethereum/EIPs/pull/12250) (Aug 27) removed the `CONTRACT_ESTABLISHED` flag and shifted the remaining flags down one bit: `DEFAULT_EOA_REVOKED = 0x01`, `LOCKED = 0x02`, `UNLOCK_INITIATED = 0x04`.
+
+---
+
+## Account Creation and Import
+
+| Account type | Mechanism |
+|---|---|
+| EOA | The secp256k1 key is an implicit admin self-actor with no Keystore write |
+| Existing contract | The account calls `importAccount()` itself; its own code returns the actor set |
+| New account | `createAccount(userSalt, bytecode, initialActors)` or a consumer's native create path |
+
+Creation uses EIP-1014 CREATE2 with `KEYSTORE_ADDRESS` as deployer and initial actors sorted strictly by `actorId`:
+
+```
+leaf_i            = keccak256(actorId_i || authenticator_i || scope_i || policyData_i)
+actors_commitment = keccak256(leaf_0 || leaf_1 || ... || leaf_n)
+effective_salt    = keccak256(user_salt || actors_commitment)
+deployment_code   = DEPLOYMENT_HEADER(len(code)) || code
+address = keccak256(0xff || KEYSTORE_ADDRESS || effective_salt || keccak256(deployment_code))[12:]
+```
+
+The address must be CREATE2-fresh (`code_size == 0`, `nonce == 0`). Code is placed, not executed. Creation sets `local_sequence = 1` and `DEFAULT_EOA_REVOKED` unless the self-actor is listed.
+
+PR #12333 replaced the signature-relayable import with a parameterless `importAccount()`. The account must be `msg.sender`; the Keystore `STATICCALL`s `confirmKeystoreImport()` on it and installs the returned actor set only when the returned digest matches `computeImportDigest(account, initialActors)`. Import carries no chain ID, rejects accounts with any existing Keystore state, and also sets `DEFAULT_EOA_REVOKED`. A wallet should gate that callback on its own owner-controlled entry point, since anyone who can drive the wallet's `execute()` could otherwise finalize the import.
+
+---
+
+## Signature Verification
+
+- `authenticateActor(account, hash, auth)` is the raw primitive. With `auth = authenticator || data`, it authenticates (native `ecrecover` for `K1_AUTHENTICATOR`, otherwise a `STATICCALL`), resolves the actor (the inline self-actor only on the native secp256k1 path), and checks liveness. It returns `(actorId, scope)`.
+- `validateSignature(account, hash, auth)` wraps it for application signatures (Sign-In with Ethereum, `Permit`, orders) with `replaySafeHash(account, chainId, hash)`. `auth` is `sigType (1) || authenticator (20) || data`, where `Local (0x01)` binds the current chain and `Multichain (0x02)` binds all chains.
+
+ERC-1271 is implemented on top of `validateSignature`, returning the magic value only for operational actors. Because the canonical set is small and authority lives in a flat slot, the spec notes that `validateSignature` can run in native code and be exposed as a precompile.
+
+---
+
+## Authenticators
 
 ```solidity
 interface IAuthenticator {
@@ -82,173 +144,70 @@ interface IAuthenticator {
 }
 ```
 
-Authenticators execute through `STATICCALL`. They cannot write state, but they can read state and make further static calls. The canonical allowlist, rather than a per-call delegated-code check, determines which authenticators may validate native transactions. PR #12148 removed the redundant delegated-authenticator bytecode check from the transaction path.
-
-### Canonical authenticator set
-
 | Name | Algorithm | `actorId` derivation |
 |---|---|---|
-| k1 | secp256k1, native sentinel | Right-aligned recovered address |
-| p256 | P-256 contract | `keccak256(x || y)` |
-| passkey | WebAuthn/FIDO2 contract | `keccak256(x || y)` |
-| delegate | Nested account authentication | Right-aligned delegated account address |
+| k1 | secp256k1, native sentinel `address(1)` | Right-aligned recovered address |
+| p256 | P-256 contract | `keccak256(x \|\| y)` |
+| passkey | WebAuthn/FIDO2 contract | `keccak256(x \|\| y)` |
+| delegate | Signature delegation contract | Right-aligned delegated account address |
 
-Only canonical authenticators may resolve `sender_auth` or `payer_auth` on the native path. Other `IAuthenticator` contracts can still be used through ordinary EVM execution, including wallet-defined recovery. The EIP expects a companion ERC to maintain deterministic canonical addresses, but that ERC has not been assigned a number and the client activation process remains unspecified.
-
-The delegate authenticator lets account A trust account B's current admin authentication, subject to the scope A granted the delegate. Delegation cannot nest, and the nested authenticator must be canonical.
+The canonical set is what every **native** consumer must accept at a constant enshrined cost. It is catalogued in a companion ERC that still has no number. PR [#12204](https://github.com/ethereum/EIPs/pull/12204) (Aug 19) added the crypto-agility language: on a base layer the enshrined set changes only through a hard fork, other chains may extend it through the companion-ERC process, and accounts adopt a new canonical scheme by authorizing a new actor with no migration. Any `IAuthenticator` can be deployed and registered permissionlessly and is always usable inside EVM execution. The delegate authenticator cannot chain, and its nested authenticator must be canonical.
 
 ---
 
-## Signature Verification
+## Consumers and Native Integration
 
-PR #12135 split the signature surface into two layers:
+A **consumer** is anything that authorizes actions against the Keystore: a native transaction type, an EIP-8141 frame account whose code calls it, an ERC-4337 account, or an application verifying signatures. A consumer may integrate natively, either fully enshrined or as a mempool optimization over EVM execution, but its authentication must be equivalent to `authenticateActor`, and scope, expiry, policy, and lock apply unchanged.
 
-- `authenticateActor(hash, auth)` is the raw authentication primitive. It resolves an `actorId` without applying account or chain domain separation.
-- `validateSignature(account, hash, auth)` consumes a typed signature envelope, verifies the actor against the account, and returns the actor's scope. Its signed digest is an account- and chain-scoped `replaySafeHash`.
+### EIP-8430 integration
 
-The envelope begins with a signature type. `Local (0x01)` binds the signature to the current chain and local Keystore state. `Multichain (0x02)` uses the multichain channel for portable authorization. The remainder supplies the authenticator and its data. ERC-1271 remains a compatibility wrapper around this account-scoped validation path.
+EIP-8130 specifies one native consumer in full. On a chain running both proposals:
 
-This makes the account-scoped replay protection first prototyped in Base implementation PR [#45](https://github.com/base/eip-8130/pull/45) part of the canonical model, in an evolved typed-envelope form.
+- **Actor resolution.** A named sender or payer (`authenticator || data`) resolves exactly as `authenticateActor`, with non-native authenticators bounded by `MAX_AUTHENTICATION_GAS` (suggested 100,000). A recovered sender or open payer resolves to its inline self-actor.
+- **Acceptance policy.** Every chain accepts the canonical set. A **permissive** chain (typically L1) also accepts any authenticator that returns within the gas cap and must track the state it reads; a **canonical-only** chain (typically L2) accepts only the canonical set. Open PR [#12210](https://github.com/ethereum/EIPs/pull/12210) would split this into four mempool tiers.
+- **Authorization.** The sender needs admin, `OPERATOR`, or `POLICY`. Non-zero `nonce_key` channels below `NONCE_KEY_MAX` need admin or `NONCE`. A payer resolving to the sender needs `SELF_PAYER`; any other payer needs `SPONSOR_PAYER`. Delegation entries need an admin sender on an unlocked account.
+- **Account-change entries.** EIP-8130 assigns create (`0x02`: `user_salt`, `code`, `initial_actors`) and config change (`0x03`: one signed batch) from EIP-8430's reserved range. Entries apply before `calls`, and `sender_auth` is checked against the resulting state.
+- **Policy gate and value rules.** A gated sender's calls to anything but its manager fail as an execution result (`ActorPolicyViolation`), not a validity error. Gated actors and accounts running canonical account bytecode must carry zero `call.value`.
+- **Intrinsic gas.** Canonical authenticators cost their enshrined constant; others pay metered `STATICCALL` gas plus one `actor_config` read. Create entries add 32,000 plus 200 per byte and 22,100 per initial actor slot. PR [#12320](https://github.com/ethereum/EIPs/pull/12320) (Sep 16) applied the EIP-7623 calldata floor, which EIP-8430 now carries.
+- **Transaction Context.** Adds `getTransactionSender()`, `getTransactionCalls()`, and `getTransactionGasLimit()` beside EIP-8430's `getTransactionPayer()`, readable during authentication so a payer authenticator can decide sponsorship onchain.
+- **RPC.** `eth_estimateGas` and `eth_call` accept `senderActorId`/`payerActorId` or dummy auth blobs to simulate a specific actor.
+- **Empty-Keystore equivalence.** For an account with no Keystore state, validity, execution, and gas are identical with or without the integration.
 
----
-
-## Transaction Format
-
-### `AA_TX_TYPE = 0x79`
+### EIP-8430 at a glance
 
 ```
 AA_TX_TYPE || rlp([
-  chain_id,
-  sender,
-  nonce_key,
-  nonce_sequence,
-  valid_after,
-  valid_before,
-  max_priority_fee_per_gas,
-  max_fee_per_gas,
-  gas_limit,
-  account_changes,
-  calls,
-  metadata,
-  payer,
-  sender_auth,
-  payer_auth
+  chain_id, sender, nonce_key, nonce_sequence,
+  valid_after, valid_before,
+  max_priority_fee_per_gas, max_fee_per_gas, gas_limit,
+  account_changes, calls, metadata,
+  payer, sender_auth, payer_auth
 ])
+call = rlp([to, value, data])
 ```
 
-`valid_after` and `valid_before` are `uint64` Unix timestamps in **milliseconds**. Zero `valid_after` means immediately valid; zero `valid_before` means no upper bound except that nonce-free transactions require a finite `valid_before`. The canonical EIP accepts milliseconds only. Open PR [#12204](https://github.com/ethereum/EIPs/pull/12204) proposes accepting either seconds or milliseconds by magnitude, but that is not merged behavior.
+The open draft keeps the 15-field layout but changes several behaviors relative to the August EIP-8130 text: calls now carry native `value`; `payer = 0x00` selects an **open payer** recovered from `payer_auth`; `nonce_key 0` is the ordinary account nonce shared with other transaction types; receipts commit a `committed_phases` count; and no account is auto-delegated. Validity timestamps accept seconds or milliseconds by magnitude against `TIMESTAMP_MS_THRESHOLD = 10^11`, a rule PR #12204 introduced. Nonce-free transactions must have a `valid_before` within `NONCE_FREE_EXPIRY_WINDOW` and are deduplicated through the `replay_id` ring buffer.
 
-| Field | Description |
+---
+
+## High-Rate Payers
+
+A node may give a payer a higher pending-transaction limit when its balance can only fall through gas: the account is `LOCKED` with no pending unlock and a long enough `unlock_delay`, and its placed runtime code hash is in the **canonical account set** catalogued beside the canonical authenticators. An EIP-7702 delegation to a canonical implementation does not qualify, because the delegated EOA's key can still move ETH with a legacy transaction.
+
+---
+
+## Constants
+
+| Name | Value |
 |---|---|
-| `chain_id` | Chain ID per EIP-155 |
-| `sender` | Account address, or empty on the implicit EOA path |
-| `nonce_key` | Standard channel `0`, parallel channels `1..NONCE_KEY_MAX-1`, or nonce-free `NONCE_KEY_MAX` |
-| `nonce_sequence` | Expected `uint64` sequence; must be zero in nonce-free mode |
-| `valid_after` / `valid_before` | Millisecond transaction-validity window |
-| fee fields | EIP-1559 priority and maximum fee |
-| `gas_limit` | Sender-side intrinsic and execution budget |
-| `account_changes` | Create, signed Keystore changes, or delegation entries |
-| `calls` | Ordered atomic phases |
-| `metadata` | Opaque attribution or annotation bytes |
-| `payer` | Empty for sender-paid, otherwise the payer address |
-| auth fields | Sender and payer authenticator envelopes |
+| `KEYSTORE_ADDRESS` | CREATE2-derived at deployment |
+| `K1_AUTHENTICATOR` | `address(1)` |
+| `DEFAULT_EOA_REVOKED` | `0x01` |
+| `LOCKED` | `0x02` |
+| `UNLOCK_INITIATED` | `0x04` |
+| `UNSEQUENCED` | `2^32 - 1` |
 
-`AA_PAYER_TYPE = 0x7A` is a signature-domain byte, not a second transaction type.
-
----
-
-## Nonce and Replay Protection
-
-The precompile at `NONCE_MANAGER_ADDRESS` (`0x813000000000000000000000000000000000aa01`) stores independent `uint64` sequences by `(account, nonce_key)`.
-
-Nonce-free transactions use `NONCE_KEY_MAX`, require `nonce_sequence == 0`, and rely on a finite `valid_before` plus a consensus-state `replay_id` circular buffer:
-
-```
-replay_id = keccak256(REPLAY_ID_TYPE || rlp([
-  chain_id, resolved_sender, valid_after, valid_before,
-  account_changes, calls, metadata, payer
-]))
-```
-
-The identifier excludes fees and both auth blobs so a fee bump or fresh signature remains the same logical transaction. It includes the payer so a payer change is a new transaction. The buffer capacity and accepted validity window are protocol constants or chain parameters.
-
----
-
-## Account Lock and Account State
-
-The packed account state includes:
-
-- `multichain_sequence` (`uint64`)
-- `local_epoch` (`uint32`) and `local_sequence` (`uint32`)
-- `lock_union` (`uint48`)
-- the inline self-actor scope and expiry
-- flags for `CONTRACT_ESTABLISHED`, `DEFAULT_EOA_REVOKED`, `LOCKED`, and unlock state
-
-`CONTRACT_ESTABLISHED`, added in PR #12135, records that a code-less address has been established as a contract account. The flag survives EIP-6780-era code removal and prevents the address from later being treated as an unconfigured EOA with an implicit key.
-
-Lock and unlock are standalone signed local Keystore changes, not a separate entry point. Locking freezes authority changes and delegation; `Unlock` and `IncrementLocalEpoch` remain permitted. Unlock starts a configured delay bounded to `uint16` seconds; once the timestamp is reached, configuration can resume. Nodes may give higher pending-transaction limits to accounts whose actor set is provably frozen for a sufficient window.
-
----
-
-## Account Creation and Import
-
-Three account paths remain:
-
-| Account type | Mechanism |
-|---|---|
-| EOA | Native secp256k1 authentication; a code-less sender may receive the default delegation |
-| Existing contract | Import actor state after ERC-1271 authorization |
-| New account | CREATE2-derived address with initial actors and same-transaction initialization calls |
-
-The initial-actor commitment now hashes every actor leaf first, then hashes the ordered leaf list. Actors must be strictly sorted by `actorId`, which also rejects duplicates.
-
-```
-leaf_i            = keccak256(encode(initial_actor_i))
-actors_commitment = keccak256(leaf_0 || leaf_1 || ...)
-effective_salt    = keccak256(user_salt || actors_commitment)
-address           = CREATE2(KEYSTORE_ADDRESS, effective_salt, deployment_code)
-```
-
-PR #12173 removed the protocol-level create-entry code-size check from the EIP because deployment validation belongs to the implementation contract. The canonical Base contracts remain the source for those lower-level checks.
-
-`createAccount` and `importAccount` set `DEFAULT_EOA_REVOKED` by default. A user who wants to retain the implicit secp256k1 key must include the right-aligned self actor explicitly. Open PR [#11919](https://github.com/ethereum/EIPs/pull/11919) still proposes optional actor expiry at creation and import; the merged interface does not expose it.
-
----
-
-## Gas Sponsorship
-
-| Relationship | Required grant |
-|---|---|
-| Sender pays itself | `SELF_PAYER` on the sender actor |
-| Dedicated key pays its own account | `SELF_PAYER` on the payer-auth actor |
-| Different account sponsors sender | `SPONSOR_PAYER` on the payer-auth actor |
-
-Sender and payer sign the same transaction field list with `AA_TX_TYPE` and `AA_PAYER_TYPE` domain prefixes respectively. Both validity-window fields are included. The payer digest also binds the resolved sender and payer.
-
-Payer authentication is charged outside `gas_limit`, while sender authentication is inside it. This prevents a payer-selected authenticator from starving the sender's calls. The merged EIP still uses its recommended reference schedule. Open PR #12204 proposes two adoption profiles, bounded authenticator gas, and explicit transaction-context access during authentication; those rules are not canonical yet.
-
----
-
-## Call Phases and Atomic Batching
-
-Calls run directly from `sender`, with `tx.origin == sender`, `msg.sender == sender`, and zero protocol-supplied value. ETH movement must happen inside account code.
-
-`calls` is a two-level list. Calls within one phase are atomic; completed phases remain committed if a later phase fails. Policy actors may only target their recorded policy manager. A target mismatch is an execution failure rather than transaction invalidity, so the nonce and earlier phases remain consumed.
-
----
-
-## Mempool Validation Model
-
-At admission, a node:
-
-1. Parses the transaction and typed auth envelopes.
-2. Resolves the sender and effective Keystore state.
-3. Simulates ordered account changes, rejecting prohibited changes while locked.
-4. Authenticates sender and payer only through canonical authenticators.
-5. Checks actor scope, nonce or `replay_id`, payer balance, actor expiry, and the millisecond validity window.
-6. Applies pending-count and replacement policy.
-
-The fixed authenticator boundary removes arbitrary wallet-code execution from the canonical public-mempool path, but authenticators may still perform bounded state reads through `STATICCALL`. Open PR #12204 would formalize separate L1 and L2 adoption profiles: a permissive L1 path capped by `MAX_AUTHENTICATION_GAS`, and a canonical-only L2 path with configurable pricing. Until it merges, this is design work rather than current EIP text.
+Transaction constants (`AA_TX_TYPE`, `AA_PAYER_TYPE`, `NONCE_MANAGER_ADDRESS`, `TX_CONTEXT_ADDRESS`, `NONCE_KEY_MAX`, `K1_AUTH_COST`, `MAX_AUTHENTICATION_GAS`, `TIMESTAMP_MS_THRESHOLD`) now live in EIP-8430.
 
 ---
 
@@ -256,9 +215,15 @@ The fixed authenticator boundary removes arbitrary wallet-code execution from th
 
 | Proposal | Relation | Description |
 |---|---|---|
-| [ERC-8168](https://github.com/ethereum/ERCs/pull/1555) | Application layer, open draft | Payer service capability with `payer_sendTransaction` and `payer_signTransaction`; offers must support at least one method |
-| [ERC-8340](https://github.com/ethereum/ERCs/pull/1883) | Application layer, open draft | Structured metadata for EIP-8130 transactions |
-| [EIP-8141](/eip-8141) | Alternative | Frame Transaction with programmable VERIFY frames and explicit execution/state gas limits |
+| [EIP-8430](https://github.com/ethereum/EIPs/pull/12385) | Companion, open PR | AA Transaction Type split out of EIP-8130; works for plain EOAs and exposes the extension points EIP-8130 fills |
+| [EIP-8386](https://github.com/ethereum/EIPs/pull/12218) | Extension, open PR | Transaction Events View: read-only views over logs emitted so far, for in-phase outcome assertions |
+| [EIP-8387](https://github.com/ethereum/EIPs/pull/12221) | Extension, open PR (`requires: 8130`) | Stateless Accounts: transaction-scoped accounts with no Keystore write |
+| [EIP-8388](https://github.com/ethereum/EIPs/pull/12222) | Extension, open PR (`requires: 8130`) | Keystore Signatures for Execution Txs: EIP-1559 and EIP-2930 transactions authenticated through the Keystore |
+| [Expired Actor Pruning](https://github.com/ethereum/EIPs/pull/12240) | Extension, unnumbered draft | Consensus-driven garbage collection of expired actors |
+| [ERC-8168](https://github.com/ethereum/ERCs/pull/1555) | Application layer, open | Payer service capability (`payer_sendTransaction`, `payer_signTransaction`) |
+| [ERC-8340](https://github.com/ethereum/ERCs/pull/1883) | Application layer, open | Deterministic CBOR encoding for the `metadata` field |
+| [ERC-8403](https://github.com/ethereum/ERCs/pull/1979) | Application layer, open | Account Authority Lifecycle binding one actor lifecycle to both EIP-8130 and EIP-8141 |
+| [EIP-8141](/eip-8141) | Alternative and named consumer | Frame Transaction; the Keystore names EIP-8141 frame accounts as one of its consumers |
 | [EIP-8175](/eip-8175) | Alternative | Composable Transaction with a programmable fee-authorization prelude |
 | [EIP-8202](/eip-8202) | Alternative | Scheme-Agile Transaction with typed authorizations and extensions |
 | [EIP-8223](/eip-8223) | Complementary | Static contract-payer transaction through a canonical registry |

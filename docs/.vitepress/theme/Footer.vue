@@ -2,7 +2,7 @@
   <footer class="custom-footer">
     <div class="footer-container">
       <div class="footer-col footer-title">
-        <h4>EIP-8130 Account Configuration</h4>
+        <h4>EIP-8130 Keystore Accounts</h4>
       </div>
       <div class="footer-col">
         <h4>Spec</h4>

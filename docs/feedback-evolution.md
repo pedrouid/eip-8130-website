@@ -1,6 +1,6 @@
 # Feedback Evolution
 
-This page traces how community feedback and PR review shaped EIP-8130 (Account Abstraction by Account Configuration) from its October 2025 forum origin through the August 2026 Keystore alignment. It is organized into chronological, thematic phases. Each phase cites the PR or forum post that drove a change and explains the reasoning behind it, not just the mechanical diff (mechanics live on [Merged Changes](/merged-changes)).
+This page traces how community feedback and PR review shaped EIP-8130 (originally "Account Abstraction by Account Configuration," now "Keystore Accounts") from its October 2025 forum origin through the October 2026 split of its transaction type into EIP-8430. It is organized into chronological, thematic phases. Each phase cites the PR or forum post that drove a change and explains the reasoning behind it, not just the mechanical diff (mechanics live on [Merged Changes](/merged-changes)).
 
 ---
 
@@ -130,10 +130,62 @@ PR #12135 pulled that contract work into the EIP and deliberately slimmed the pr
 
 PR #12148 reconciled edge cases found during contract review: self-revocation disables both actor paths, redundant delegated-code checking is removed, and expired unsequenced grants are skipped without blocking live siblings. PR #12173 then fixed address-derived `actorId` values to right-aligned addresses and removed create-bytecode validation detail from the protocol prose. Together they show the new operating model: the EIP specifies consensus boundaries while the audited Keystore contracts carry internal mechanics.
 
+### Adoption profiles and bounded authentication (PR #12204, opened and merged August 19)
+
+PR #12204 answered a question the audit work had exposed: on a base layer, "chain MAY choose" pricing and acceptance rules would let two compliant clients disagree on block validity. It split adoption into an L1 profile with a normative gas schedule and permissive, gas-capped authenticator acceptance, and an L2 profile with configurable pricing and a canonical-only path. It also exposed transaction context during authentication so payer authenticators can decide sponsorship onchain, and accepted second or millisecond timestamps by magnitude. lightclient's only involvement was rerunning CI; it merged the day it opened, superseding two drafts from the previous day.
+
+---
+
+## Phase 10: Sibling EIPs and the Account-Model Debate (August 21 – September 3, 2026)
+
+### The Keystore grows extension EIPs (PRs #12218, #12221, #12222, #12240, August 21-25)
+
+Breaking EIP-8130's habit of landing every feature in its own spec file, chunter-cb opened four separate drafts: EIP-8386 (read-only views over the transaction's log journal, pitched on its thread as a replacement for EIP-7906 transaction assertions), EIP-8387 (transaction-scoped stateless accounts "to support privacy flows and statelessness goals"), EIP-8388 (EIP-1559 and EIP-2930 transactions authenticated through the Keystore), and an unnumbered expired-actor pruning draft. On EIP-8387, AnkushinDaniil asked how revocation could be enforced without stored state; chunter-cb answered that stateless is "the default, not a restriction," and accounts needing durable revoke can write real Keystore state. All four drew change requests from jochem-brouwer and none has merged.
+
+### Public policy actors and cross-chain freshness (posts #28-31, August 23-30)
+
+chunter answered post #27 a month late: a public `POLICY` actor is essentially an `AlwaysValidAuthenticator`, outside the canonical set but "a very simple add" (posts #28-29). Agusx1211 (post #30) then argued that a revoked admin stays valid on any chain nobody relays to, and proposed an opt-in freshness check whose interface "can only block, never authorize," plus snapshot batches. chunter (post #31) suggested expiring non-admin operators re-authorized by an admin authenticator that requires proof from a home chain, "still in design."
+
+### Should L1 enshrine an account model? (Frame Transaction breakout #2, August 25; ACDE #244, August 27)
+
+The forum's meeting summary of [breakout #2](https://ethereum-magicians.org/t/29419) records Chris presenting EIP-8130 against EIP-8141 and Base offering to delay its fork. Its recorded outcome was that L1 should not enshrine opinionated account models, while EIP-8130's authenticator validation benefits L2s, with a companion keystore EIP as a next step. The [ACDE #244](https://ethereum-magicians.org/t/29468) summary added weekly AA calls with a DevCon (November 3) decision deadline. It is the backdrop for the rest of this phase and the next.
+
+### An identity flag reversed (PR #12250, August 27)
+
+PR #12250 removed `CONTRACT_ESTABLISHED` two weeks after PR #12135 added it, following Base implementation PR #92, and shifted the remaining flags down one bit. No rationale was posted beyond the diff; it is the first time an August alignment addition was rolled back.
+
+### A competing decomposition and the rename (PR #12248, August 27 – September 3; PR #12295, September 3)
+
+pedrouid's PR #12248 proposed splitting EIP-8130 into separate transaction, Keystore, and advanced-controls EIPs while leaving 8130 unchanged. abcoathup suggested a new Keystore EIP might be easier "depending how Chris wants to approach this," and the PR closed on September 3. Hours later chunter-cb's PR #12295 renamed EIP-8130 "Keystore Accounts" with no protocol change. AnkushinDaniil's ERC-8403 (opened August 29) meanwhile set out to define one actor lifecycle for both EIP-8130 and EIP-8141.
+
+---
+
+## Phase 11: Contract Realignment and the Transaction-Type Split (September 3 – October 21, 2026)
+
+### Checkpointed actors and admin freshness (PRs #12293 and #12313, September 3-11)
+
+pedrouid opened two alternative designs letting non-admin actors live in a checkpointed, offchain-maintained set that an onchain admin must co-approve, so a compromised checkpointer cannot grant authority alone. Agusx1211 accepted that fix but said the stale-admin problem from post #30 remained: "a lagging chain refuses stale-owner authorization" only if admins also get freshness checks. Neither PR has an author review.
+
+### Base moves the activation out of Cobalt (base/base PRs, September 8-30)
+
+Base's client moved EIP-8130 from Cobalt to an unscheduled upgrade on September 8, then to a new Everest upgrade on September 25. On September 29 it gated the Keystore to Zenith, a test-only fork never scheduled on mainnet or Sepolia, because "Everest has no concept of the Keystore." Cobalt shipped on September 30 without EIP-8130.
+
+### The EIP catches up with the contracts (PR #12333, September 14; PR #12320, September 16)
+
+PR #12333 adopted the repository's scope-bit order, renamed SENDER to OPERATOR, made OPERATOR override POLICY, and replaced signed import with a callback import, all to stop drifts "a node implementer reading only the EIP would get wrong." Separately, karlb's post #33 (September 2) showed that EIP-7623's floor never bound on `0x79`; chunter replied "will update things" (post #35) and PR #12320 added the floor.
+
+### The transaction type splits out (PRs #12385 and #12386, September 28 – October 8)
+
+chunter-cb's paired PRs mirrored Base's staging: EIP-8430 carries a secp256k1-only transaction for today's EOAs, and EIP-8130 becomes a transport-neutral Keystore naming EIP-8141 frame accounts among its consumers. "Neither EIP requires the other," the [EIP-8430 thread](https://ethereum-magicians.org/t/eip-8430-aa-transaction-type-split-out-from-8130/29810) opened. There, chugarchugarr noted the config-change auth blob leaks into `replay_id`, and AnkushinDaniil proposed sharing EIP-8250's nonce manager; chunter was open to both.
+
+### Simplification proposed (PR #12462, October 8)
+
+The day #12386 merged, chunter-cb opened a draft cutting scope to OPERATOR and POLICY and removing the policy manager and account lock, because finer gas or nonce grants "protected nothing." On the EIP-8141 side, EIP-8397 merged on October 14 with a registry-free `AUTHENTICATOR` scheme, a parallel convergence on authenticate-then-authorize.
+
 ---
 
 ## Where Things Stand
 
-As of August 20, 2026, EIP-8130 remains a Draft with 43 merged spec PRs and three open EIP PRs: #11578 (`opaque_input`), #11919 (expiry at create/import), and #12204 (L1/L2 adoption profiles and bounded authenticator gas). The forum reaches post #27 with the public-policy-actor question unanswered. ERC-8168 and ERC-8340 remain open. Base's Cobalt page lists both Sepolia and mainnet in planning for September; no production activation has occurred yet.
+As of October 21, 2026, EIP-8130 is a Draft titled "Keystore Accounts" with 49 merged spec PRs, the latest being #12386's transaction-type split. Its transaction format lives in open EIP-8430 (PR #12385), and eight EIP-8130 PRs are open, including draft #12462's proposal to cut scope to two bits and remove account lock. Four extension EIPs (8386, 8387, 8388, and the unnumbered pruning draft) await editor fixes. The forum thread reaches post #35. Base's Cobalt shipped without EIP-8130; Everest plans EIP-8430 with no date, and Base keeps the Keystore behind a fork it does not schedule in production.
 
 For the mechanical PR-by-PR record, see [Merged Changes](/merged-changes). For the spec as it stands today, see [Current Spec](/current-spec).

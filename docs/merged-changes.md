@@ -1,6 +1,6 @@
 # Merged Changes
 
-Every pull request touching `EIPS/eip-8130.md`, in commit order, from the original submission (PR [#11186](https://github.com/ethereum/EIPs/pull/11186), merged February 28, 2026) through the most recent merge (PR [#12173](https://github.com/ethereum/EIPs/pull/12173), merged August 14, 2026). Sections below group same-day or same-theme merges; structurally significant PRs get a full why/what/why-it-matters treatment, and smaller changes get a one-line entry. Currently open and closed-without-merge PRs are listed separately at the end of this page. See [Original Spec](/original-spec) for the pre-#11367 baseline and [Original vs Latest](/original-vs-latest) for a structural diff against today's spec.
+Every pull request touching `EIPS/eip-8130.md`, in commit order, from the original submission (PR [#11186](https://github.com/ethereum/EIPs/pull/11186), merged February 28, 2026) through the most recent merge (PR [#12386](https://github.com/ethereum/EIPs/pull/12386), merged October 8, 2026). Sections below group same-day or same-theme merges; structurally significant PRs get a full why/what/why-it-matters treatment, and smaller changes get a one-line entry. Currently open and closed-without-merge PRs are listed separately at the end of this page. See [Original Spec](/original-spec) for the pre-#11367 baseline and [Original vs Latest](/original-vs-latest) for a structural diff against today's spec.
 
 ---
 
@@ -244,33 +244,133 @@ The duplicate PR #11144 (opened January 21, closed January 29) is tracked under 
 
 ---
 
+## Adoption Profiles and Bounded Authentication — August 19, 2026
+
+**PR [#12204](https://github.com/ethereum/EIPs/pull/12204)** — chunter-cb, +103/-26
+
+- **Why**: The draft let each chain choose how to price authenticators and whether to accept non-canonical ones, which on a base layer would let two compliant clients disagree on block validity. Sponsored transactions also had no bound on how far payer-selected authentication could push total gas past the sender-signed `gas_limit`.
+- **What**: Defines two adoption profiles. The **L1 profile** makes the intrinsic-gas schedule normative and accepts any authenticator whose `STATICCALL` returns within `MAX_AUTHENTICATION_GAS` (suggested 100,000). The **L2 profile** keeps a configurable schedule and a canonical-only transaction path. Canonical authenticators are enshrined at constant cost under both. Adds `effective_gas_limit = gas_limit + MAX_AUTHENTICATION_GAS`, meters `payer_auth` bytes outside `gas_limit`, restores `getTransactionCalls` and `getTransactionGasLimit`, makes the static Transaction Context fields readable during authentication, and accepts `valid_after`/`valid_before` in seconds or milliseconds by magnitude against `TIMESTAMP_MS_THRESHOLD = 10^11`. Reframes intrinsic gas as a four-phase full-EVM metering model with optional native implementation.
+- **Why it matters**: It is the first time the spec separated L1 and L2 consensus expectations explicitly, and the first time non-canonical authenticators were allowed on the transaction path at all (on permissive chains). It supersedes closed drafts #12185 and #12192.
+
+**Key review discussion**: lightclient twice asked eth-bot to rerun its checks. No substantive human review comment was posted, and the PR merged the day it opened. This site's August 20 sync listed it as open; the merge had already happened.
+
+---
+
+## CONTRACT_ESTABLISHED Removed — August 27, 2026
+
+**PR [#12250](https://github.com/ethereum/EIPs/pull/12250)** — chunter-cb, +3/-11. Removes the `CONTRACT_ESTABLISHED` flag added two weeks earlier in PR #12135, along with its Account Establishment section and the `isContractEstablished` view. The remaining account-state flags shift down one bit: `DEFAULT_EOA_REVOKED` `0x02` to `0x01`, `LOCKED` `0x04` to `0x02`, `UNLOCK_INITIATED` `0x08` to `0x04`. Small in lines but significant by this site's criteria, since it changes three constants. No review discussion beyond automated approval.
+
+---
+
+## Renamed to Keystore Accounts — September 3, 2026
+
+**PR [#12295](https://github.com/ethereum/EIPs/pull/12295)** — chunter-cb, +2/-2. Renames the EIP from "Account Abstraction by Account Configuration" to **"Keystore Accounts"** and rewrites the preamble description, with no specification, wire-format, or protocol change. The Magicians thread slug is unchanged. It is the third core rename after keys to owners to actors (PRs #11380, #11764) and verifiers to authenticators (PR #11785), and it applies to the proposal itself. It merged hours after pedrouid's PR #12248, which had proposed separate transaction and Keystore EIPs, was closed.
+
+---
+
+## Scope-Bit Realignment and Calldata Floor — September 14 – September 16, 2026
+
+**PR [#12333](https://github.com/ethereum/EIPs/pull/12333)** — chunter-cb, +62/-38
+
+- **Why**: The EIP names `base/eip-8130` as authoritative for contract internals, but the prose had drifted from the repository in ways a node implementer reading only the EIP would get wrong.
+- **What**: Reorders the scope bits to match the repository's `Scopes.sol` (Base implementation PR #95): `OPERATOR 0x01`, `SELF_PAYER 0x02`, `SPONSOR_PAYER 0x04`, `POLICY 0x08`, `NONCE 0x10`, renaming `SENDER` to `OPERATOR`. Reverses the gating rule: `POLICY` previously gated "regardless of `SENDER`," while now `OPERATOR` overrides `POLICY`. Makes policy-slot storage depend only on `policyData` length, so an actor can hold policy slots without `POLICY`. Replaces the ERC-1271-signed `importAccount(account, chainId, actors, signature)` with a parameterless `importAccount()` that calls back `confirmKeystoreImport()` on the importing account and carries no chain ID. Renames `getActor` to `getActorWithPolicy` and adds policy and import-digest views.
+- **Why it matters**: Every scope constant except the admin predicate changed value, and import changed from an off-chain signature to a live account-originated call. Wallet SDKs built against the July 13 bit layout must re-encode scopes.
+
+**PR [#12320](https://github.com/ethereum/EIPs/pull/12320)** — chunter-cb, +15/-4, opened September 11, merged September 16
+
+- **Why**: An EIP-8130 transaction has no `data` field, so the EIP-7623 calldata floor never applied. The PR measured 20,000 zero bytes at about 129,000 gas self-paid against 221,000 for a type-2 transaction, roughly 40% cheaper data availability, which reopens the block-size bound EIP-7623 was created to close.
+- **What**: Adds an EIP-7623-style `max(standard, floor)` term over the serialized transaction and over the payer's `payer_auth` bytes, makes the floor normative structure under both adoption profiles (an L2 may reprice the rate but not below `4`), and trims `requires` from thirteen EIPs to `170, 2718, 7623`.
+- **Why it matters**: It closes a pricing hole the sibling EIP-8141 had already addressed. The PR was opened as a draft for discussion of where the payer floor belongs; no discussion was posted before the merge.
+
+---
+
+## Keystore Scope and the Transaction-Type Split — October 8, 2026
+
+**PR [#12386](https://github.com/ethereum/EIPs/pull/12386)** — chunter-cb, +259/-718, opened September 28
+
+- **Why**: Authority over an account should not depend on which transaction format carries an action. The new rationale section argues that stating the Keystore once, with every consumer's authentication equivalent to `authenticateActor`, gives an actor the same meaning on a native transaction type, a frame account, an ERC-4337 account, and in signature verification.
+- **What**: Scopes EIP-8130 to the Keystore (actors, authenticators, scopes, policies, lock, creation, import, signature verification) and moves the transaction type into a new proposal, EIP-8430 (open PR [#12385](https://github.com/ethereum/EIPs/pull/12385)). Adds a Native Integration section and an AA Transaction Type Integration section assigning account-change types `0x02` (create) and `0x03` (config change), value rules, a policy gate, RPC actor selection, and an empty-Keystore equivalence guarantee. Adds High-Rate Payers built on a canonical account bytecode set, and a native-precompile note for `validateSignature`. Changes `requires` to `170, 1014`. The companion EIP-8430 draft adds native call value, an open payer mode, `nonce_key 0` as the account nonce, a receipt phase count, and drops auto-delegation.
+- **Why it matters**: This is the largest change in the spec's history by deleted lines, and it inverts the proposal's identity: EIP-8130 is no longer a transaction type. Neither EIP requires the other, so the canonical repository currently holds a merged Keystore that integrates with an unmerged transaction type.
+
+**Key review discussion**: Only automated eth-bot approval is recorded on the PR; EIP-8430 got its own Magicians thread. A month earlier, abcoathup had answered pedrouid's PR #12248 by suggesting a separate EIP for the Keystore layer rather than rewriting EIP-8130.
+
+---
+
 ## Active/Open PRs
 
-*As of August 20, 2026.*
+*As of October 21, 2026.*
 
 ### PR #11578 — "Add opaque_input bytes field"
 
 - **Author**: pochenai (community)
-- **Opened**: April 29, 2026 — +26/-6
-- **Why**: Restore a tx-level metadata role mirroring the legacy `input` field, for use cases like ERC-8021 attribution suffixes, bound into both sender and payer signature hashes and charged via standard `tx_payload_cost`.
-- **Proposed change**: Adds a top-level `opaque_input` field, distinct from the calls-model approach ultimately shipped.
-- **Status**: Still open. Superseded in spirit by the merged metadata field (PR #11805, June 15), which took a different approach. chunter-cb responded favorably to the general idea but pointed at his own alternative draft (#11655, since closed). It now overlaps the shipped metadata field and would need reconciliation before it could merge.
+- **Opened**: April 29, 2026, +26/-6
+- **Why**: Restore a tx-level metadata role mirroring the legacy `input` field, for use cases like ERC-8021 attribution suffixes.
+- **Proposed change**: Adds a top-level `opaque_input` field, distinct from the `metadata` field shipped in PR #11805.
+- **Status**: Still open with no activity since May. The transaction format it edits has moved to EIP-8430, so it would need retargeting at that draft as well as reconciliation with `metadata`.
 
 ### PR #11919 — "Allow expiry in initial actors at create and import"
 
 - **Author**: chunter-cb
-- **Opened**: July 13, 2026 — +18/-18
-- **Why**: Expiry was previously only settable via a post-deployment config change; wallets creating an account with a session-style initial actor had no way to bound its lifetime at creation time.
-- **Proposed change**: Adds an optional `uint48 expiry` to each initial actor at `createAccount`/`importAccount` time, committing `expiry` into the per-actor address-derivation preimage (`actorId || authenticator || scope || expiry || policyData`) so a front-runner cannot alter it.
-- **Status**: Still open as a draft with no review comments. It directly extends PR #11918's `policyData`-at-create work.
+- **Opened**: July 13, 2026, +18/-18
+- **Why**: Wallets cannot bound an initial actor's lifetime at creation or import time.
+- **Proposed change**: Adds `uint48 expiry` to each initial actor and commits it into the address-derivation and import digests.
+- **Status**: Still open with no review. It predates PR #12333's parameterless import and #12386's split, so its diff no longer matches the current text.
 
-### PR #12204 — "Add adoption profiles, bounded authenticator gas, and timestamp normalization"
+### PR #12210 — "Add four-tier authenticator classification"
 
 - **Author**: chunter-cb
-- **Opened**: August 19, 2026, +103/-26
-- **Why**: Give L1 and L2 adopters explicit deployment profiles while bounding public-mempool authentication work and making payer-selected authentication cost predictable.
-- **Proposed change**: Defines a permissive L1 profile with a `MAX_AUTHENTICATION_GAS` cap and a canonical-only L2 profile with configurable pricing; moves payer-auth bytes outside `gas_limit`; exposes sender, payer, calls, and gas limit during authentication; describes full-EVM metering phases; and accepts second or millisecond timestamps by magnitude.
-- **Status**: Open and not a draft. No review comments or submitted reviews were present at the August 20 snapshot. It supersedes closed drafts #12185 and #12192. None of its rules are current EIP behavior.
+- **Opened**: August 19, 2026 (draft), +28/-15
+- **Why**: The binary canonical/permissive split from PR #12204 says nothing about how nodes should treat the authenticators a permissive chain admits.
+- **Proposed change**: Classifies authenticators by code hash as **CANONICAL**, **PURE**, **BOUNDED**, or **ARBITRARY**. Consensus validity is unchanged; tiers govern mempool propagation, revalidation, and rate limits, and a chain may accept any downward-closed prefix of the order. Lock-based higher-rate tiers would require a PURE or CANONICAL authenticator.
+- **Status**: Draft with no review.
+
+### PR #12293 — "Optional Checkpointed Keystore"
+
+- **Author**: pedrouid
+- **Opened**: September 3, 2026, +252/-28
+- **Why**: Let non-admin actors live in an offchain-maintained image rather than one onchain slot each, while keeping admins onchain.
+- **Proposed change**: A permanent opt-in mode where the Keystore verifies an admin signature over a complete successor image, reconstructs the acting leaf's Merkle membership itself, and requires a configured checkpointer to accept that exact image. Root approvals can cover a batch of keys and be reused across transactions.
+- **Status**: Open, awaiting author review. AnkushinDaniil read it as a concrete realization of ERC-8403's committed-root binding (Sep 3, Sep 5). Agusx1211 (Sep 11) said admin co-approval addressed his concern about a checkpointer granting authority alone, but asked for opt-in **freshness for admins**, since a revoked admin on one chain can still act on a lagging chain.
+
+### PR #12313 — "Optional checkpointed actors"
+
+- **Author**: pedrouid
+- **Opened**: September 10, 2026, +153/-13
+- **Why**: Offer the same checkpointing without changing ordinary creation and import.
+- **Proposed change**: An optional, replaceable **actor source** of checkpointed non-admin actors alongside onchain actors. Each leaf needs both source acceptance and an onchain admin's signature over its full configuration, so a compromised source cannot invent or broaden actors.
+- **Status**: Open, awaiting author review. Explicitly an alternative to #12293.
+
+### PR #12334 — "Symmetric two-track epochs, IncrementEpoch, and the transient actor tier"
+
+- **Author**: chunter-cb
+- **Opened**: September 14, 2026 (draft), +111/-69
+- **Why**: Local churn should never desynchronize the multichain counter, and the merged lock text no longer matched the repository.
+- **Proposed change**: Gives the multichain channel its own epoch and unsequenced mode, generalizes `IncrementLocalEpoch` to `IncrementEpoch`, adds `AuthorizeTransientActor` writing an actor to EIP-1153 transient storage for one transaction, and permits pure-add or expiry-only `AuthorizeActor` while locked.
+- **Status**: Draft, stacked on the since-merged #12333.
+
+### PR #12341 — "Optional model-neutral change digest for portable actor changes"
+
+- **Author**: AnkushinDaniil (community)
+- **Opened**: September 15, 2026, +6/-0
+- **Why**: A key change signed only over outcome fields (domain, chain ID or 0, account, `actorId`, old and new config) could be applied through EIP-8130, another native AA model reading the same record, or another chain.
+- **Proposed change**: An additive `MAY` digest that leaves the sequenced batch digest untouched, motivated by ERC-8403 and its proof of concept.
+- **Status**: Open, awaiting author review.
+
+### PR #12462 — "Simplify the Keystore"
+
+- **Author**: chunter-cb
+- **Opened**: October 8, 2026 (draft), +111/-162
+- **Why**: "An operator can already move all of the account's ETH through its calls, so finer gas or nonce grants protected nothing."
+- **Proposed change**: Cuts scope to `OPERATOR 0x01` and `POLICY 0x02`, removing `SELF_PAYER`, `SPONSOR_PAYER`, and `NONCE`. Policy actors become ordinary actors whose `actorId` commits to caller, policy, and configuration, with no manager slots or transaction-path gate. Adds epochs to the multichain channel and removes account lock, restating high-rate payers as canonical bytecode plus an immutable contract-backed admin.
+- **Status**: Draft, opened the day #12386 merged. If merged it would reverse most of PR #11918's July scope model.
+
+### Related EIP drafts
+
+- **PR [#12385](https://github.com/ethereum/EIPs/pull/12385)** — chunter-cb, opened September 28, +463/-0, EIP-8430 "AA Transaction Type," the transaction format split out of EIP-8130. One editor review is still required.
+- **PR [#12218](https://github.com/ethereum/EIPs/pull/12218)** — chunter-cb, opened August 21, +235/-0, EIP-8386 "Transaction Events View," read-only views over the current transaction's log journal. jochem-brouwer requested changes September 19.
+- **PR [#12221](https://github.com/ethereum/EIPs/pull/12221)** — chunter-cb, opened August 21, +441/-0, EIP-8387 "Stateless Accounts" (`requires: 8130`). jochem-brouwer requested changes September 19.
+- **PR [#12222](https://github.com/ethereum/EIPs/pull/12222)** — chunter-cb, opened August 21, +285/-0, EIP-8388 "Keystore Signatures for Execution Txs" (`requires: 8130`). jochem-brouwer requested changes September 19.
+- **PR [#12240](https://github.com/ethereum/EIPs/pull/12240)** — chunter-cb, opened August 25, +316/-0, unnumbered "Keystore Expired Actor Pruning." jochem-brouwer requested changes October 14 and noted failing CI.
 
 ---
 
@@ -293,3 +393,5 @@ The duplicate PR #11144 (opened January 21, closed January 29) is tracked under 
 **PR [#12185](https://github.com/ethereum/EIPs/pull/12185)** — chunter-cb, opened August 18 and closed August 19, 2026, +84/-20. First draft of the L1/L2 adoption-profile and bounded-authentication-gas work. Closed in favor of the consolidated #12204.
 
 **PR [#12192](https://github.com/ethereum/EIPs/pull/12192)** — chunter-cb, opened August 18 and closed August 19, 2026, +103/-26. Follow-up draft adding transaction context and timestamp normalization. Closed in favor of #12204.
+
+**PR [#12248](https://github.com/ethereum/EIPs/pull/12248)** — pedrouid, opened August 27, closed September 3, 2026, +1,317/-0. "Native Account Abstraction Transactions" proposed three composable EIPs (EIP-8398 transaction, EIP-8401 portable Keystore, EIP-8402 policies, lock, and nonce-free mode) while leaving EIP-8130 unchanged. abcoathup suggested "it may be easier to create a new EIP" for the Keystore layer depending on chunter-cb's approach, and asked that each EIP get its own PR and thread; jochem-brouwer said he could not review a PR creating three EIPs. Closed without merge. The transaction/Keystore separation it proposed later arrived through chunter-cb's own PRs #12385 and #12386.

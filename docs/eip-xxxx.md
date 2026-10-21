@@ -4,7 +4,7 @@
 |---|---|
 | **Author** | Georgios Konstantopoulos ([@gakonst](https://github.com/gakonst), Paradigm/Reth) |
 | **Status/category** | Pre-draft gist; no EIP number or PR |
-| **Created** | Not specified; the gist has no `created` frontmatter |
+| **Created** | Not specified in frontmatter; the gist itself was created December 24, 2025 |
 | **Requires** | EIP-1559, EIP-2718, EIP-2930, EIP-7702, EIP-2, EIP-2929 |
 | **Source** | [Tempo-like transaction gist](https://gist.github.com/gakonst/00117aa2a1cd327f515bc08fb807102e) |
 
@@ -20,7 +20,7 @@ This is a design gist, not a numbered proposal or an active transaction type.
 
 **Problem it solves.** It targets the same UX pain points as general account-abstraction proposals (batching, sponsorship, expiring transactions, non-ECDSA signing) but without introducing programmable validation logic, new opcodes, or an account-configuration contract. The stated philosophy is "constrained scope over general framework."
 
-**Why an EIP-8130 reader should care.** EIP-8130 also avoids arbitrary wallet-code execution at validation time, but does so by routing authentication through registered authenticator contracts checked against a canonical allowlist. Tempo-like Transactions go a step further and drop the account-configuration layer entirely: the signature schemes and UX primitives are hardcoded into the envelope itself, with no per-account registration, no scopes, and no authenticator contracts at all. It is the most constrained point on the design spectrum and a useful foil for evaluating how much of EIP-8130's contract-based configuration model a reader actually needs.
+**Why an EIP-8130 reader should care.** EIP-8130 also avoids arbitrary wallet-code execution at validation time, but does so by routing authentication through registered authenticator contracts checked against a canonical allowlist. Tempo-like Transactions go a step further and drop the account-configuration layer entirely: the signature schemes and UX primitives are hardcoded into the envelope itself, with no per-account registration, no scopes, and no authenticator contracts at all. It is the most constrained point on the design spectrum and a useful foil for evaluating how much of EIP-8130's contract-based configuration model a reader actually needs. That question became concrete in October: EIP-8430, the transaction type split out of EIP-8130, is a secp256k1-only bundle of batching, sponsorship, validity windows, and 2D nonces, structurally close to this gist without its passkey schemes, and Base's Everest plan ships it without the Keystore.
 
 ---
 
@@ -71,12 +71,12 @@ Signature sizes are bounded (`MAX_WEBAUTHN_SIG_SIZE = 2,049` bytes) and verifica
 
 | Aspect | EIP-XXXX (Tempo-like) | EIP-8130 |
 |---|---|---|
-| Formal status | Pre-draft gist, no EIP number, no PR, no discussion thread | Draft, Core/Standards Track, `requires: 170, 2718`, 40+ merged PRs |
-| Transaction type | `0x76` | `AA_TX_TYPE = 0x79` (plus `AA_PAYER_TYPE = 0x7A` as a signature-domain byte, not a separate envelope) |
-| Validation model | Fixed signature encodings checked inline against the envelope; no contract call | Authenticator contracts invoked via STATICCALL, checked against a canonical allowlist; native `K1_AUTHENTICATOR` sentinel for secp256k1 |
+| Formal status | Pre-draft gist, no EIP number, no PR, no discussion thread | Draft, Core/Standards Track, `requires: 170, 1014`, 49 merged PRs; transaction format in open EIP-8430 |
+| Transaction type | `0x76` | `AA_TX_TYPE = 0x79` in EIP-8430 (plus `AA_PAYER_TYPE = 0x7A` as a signature-domain byte, not a separate envelope) |
+| Validation model | Fixed signature encodings checked inline against the envelope; no contract call | Authenticator contracts invoked via STATICCALL under a chain acceptance policy; native `K1_AUTHENTICATOR` sentinel for secp256k1 |
 | Account configuration | None; sender is an existing EOA or a new address derived from a passkey public key | Onchain Keystore; actors registered per account via `actor_config`, existing EOAs and smart-contract wallets supported |
-| Extending the signature set | Would require changing and activating the protocol definition | A contract can be deployed freely, but direct AA authentication requires canonical-set adoption; activation is unspecified |
-| Permission scoping | None; a valid signature authorizes the entire call batch | Scope bitmask (`SENDER`, `POLICY`, `NONCE`, `SELF_PAYER`, `SPONSOR_PAYER`); `POLICY` gates a key to a single target contract |
+| Extending the signature set | Would require changing and activating the protocol definition | A contract can be deployed freely; permissive chains accept it within a gas cap, and canonical status on L1 takes a hard fork |
+| Permission scoping | None; a valid signature authorizes the entire call batch | Scope bitmask (`OPERATOR`, `SELF_PAYER`, `SPONSOR_PAYER`, `POLICY`, `NONCE`); `POLICY` gates a key to a single target contract |
 | Batching model | Flat `calls` list, single all-or-nothing atomicity level | Two-level Call Phases: phases commit independently in sequence, calls within a phase are atomic |
 | Nonces | 2D (`nonce_key`, `nonce`); `nonce_key == 0` is standard | 2D (`nonce_key`, `nonce_sequence`) plus a dedicated nonce-free mode (`NONCE_KEY_MAX`) with `replay_id` dedup via a fixed-capacity circular buffer |
 | Validity window | Native `valid_after` / `valid_before` window | Single transaction-level `expiry`, plus an independent actor-level `expiry` for key liveness; no `valid_after` equivalent |
@@ -84,7 +84,7 @@ Signature sizes are bounded (`MAX_WEBAUTHN_SIG_SIZE = 2,049` bytes) and verifica
 | Session/access keys | Deferred to a companion EIP; only a Keychain wrapper stub defined | The EIP-8130 draft defines `POLICY` plus `policy_manager`/`policy_commitment` |
 | New EVM primitives | None (no opcodes, no precompiles) | No opcodes; adds a Nonce Manager precompile and a Transaction Context precompile |
 | PQ / signature-scheme story | Fixed set (secp256k1, P-256, WebAuthn); none quantum-safe | No PQ scheme defined; a future authenticator would still need canonical-set adoption |
-| Mempool validation cost | Purely cryptographic; deterministic per signature encoding | One `actor_config` SLOAD plus an authenticator STATICCALL checked against a node allowlist |
+| Mempool validation cost | Purely cryptographic; deterministic per signature encoding | One `actor_config` SLOAD plus a constant-cost canonical check or a capped authenticator STATICCALL |
 
 ---
 
