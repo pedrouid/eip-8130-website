@@ -4,7 +4,7 @@
 
 ## TL;DR
 
-EIP-8130's developer bet is structural: replace arbitrary account validation with a small canonical authenticator set, and standardize account authority around a shared Keystore at `KEYSTORE_ADDRESS`. Since October that Keystore is its own proposal, "Keystore Accounts," while the transaction type lives in the open EIP-8430 draft. The split gives wallets a clearer staging path (adopt the transaction for EOAs first, the Keystore later) and that is exactly how Base's production plans now read: Cobalt shipped on September 30 without EIP-8130, Everest plans EIP-8430 with no date, and the Keystore is gated to a fork Base never schedules on mainnet. "No new opcodes" remains narrower than "no new protocol surface." ERC-8168 now spans both EIP-8430 and EIP-8141, while ERC-8340 has gone stale.
+EIP-8130's developer bet is structural: replace arbitrary account validation with a small canonical authenticator set, and standardize account authority around a shared Keystore at `KEYSTORE_ADDRESS`. Since October that Keystore is its own proposal, "Keystore Accounts," while the transaction type lives in its sibling EIP-8430, merged as a Draft on November 23. The split gives wallets a clearer staging path (adopt the transaction for EOAs first, the Keystore later) and that is exactly how Base's production plans now read: Cobalt shipped on September 30 without EIP-8130, Everest plans EIP-8430 with no date, and on November 17 Base deleted its Keystore implementation. "No new opcodes" remains narrower than "no new protocol surface." ERC-8168 now spans both EIP-8430 and EIP-8141, while ERC-8340 has gone stale.
 
 ---
 
@@ -60,7 +60,7 @@ But "no new opcodes" understates the new consensus-critical surface EIP-8130 int
 
 This is editorial analysis; no public forum post or PR comment frames the tradeoff in these terms. The gas schedule's status also moved: PR #11813 (June 17) called it "a reference, not protocol constants," but PR #12204 (Aug 19) made it protocol constants under the L1 profile, and PR #12320 (Sep 16) showed what the flexibility had missed, an absent EIP-7623 floor that let data-heavy transactions post data about 40% cheaper than type-2 transactions.
 
-The October split changes the implementer's bar in a useful way. A client can ship EIP-8430 alone, secp256k1-only and with no Keystore reads, and add the Keystore integration later; EIP-8430 even charges the Keystore's account-state read in `K1_AUTH_COST` up front so gas estimates do not change when the integration activates. Base's client does exactly this staging.
+The October split changes the implementer's bar in a useful way. A client can ship EIP-8430 alone, secp256k1-only and with no Keystore reads, and add the Keystore integration later; EIP-8430 prices every authentication as a signature check plus one cold authorization read, so a later Keystore integration "need not reprice secp256k1 transactions." Base's client went further than staging: it shipped the first half and, on November 17, deleted the second.
 
 A narrower reading of "lowers the bar" is about audit surface rather than raw implementation effort: fixed precompiles with bounded input/output shapes (Nonce Manager, Transaction Context) are more tractable to audit and fuzz than an opcode whose semantics interact with the EVM's stack/memory/gas model in less enumerable ways. On that framing, "no new opcodes" is closer to true.
 
@@ -87,7 +87,7 @@ No public EIP-8130-vs-ERC-8286 comparison thread exists; this contrast is constr
 
 ## 5. Payer-Service Tooling: ERC-8168
 
-[Open ERC PR #1555](https://github.com/ethereum/ERCs/pull/1555) proposes ERC-8168, now titled **Payer Service Capability**. It reuses the ERC-7677 `paymasterService` capability while defining `payer_*` JSON-RPC methods; offers must support `payer_sendTransaction`, `payer_signTransaction`, or both. October 5 commits retargeted it at the split: the transaction type is EIP-8430, the Keystore is EIP-8130, and EIP-8141 frame transactions are a second target, with `requires: 5792, 7677, 8130, 8141, 8430`. A Keystore Integration section now uses the current grants: a named payer co-signs with a `SPONSOR_PAYER` actor, and a self-paying open payer needs `SELF_PAYER`. September 28 added rate-based token quotes and preauthorized payers; October 19 dropped endpoint versioning.
+[Open ERC PR #1555](https://github.com/ethereum/ERCs/pull/1555) proposes ERC-8168, now titled **Payer Service Capability**. It reuses the ERC-7677 `paymasterService` capability while defining `payer_*` JSON-RPC methods; offers must support `payer_sendTransaction`, `payer_signTransaction`, or both. October 5 commits retargeted it at the split: the transaction type is EIP-8430, the Keystore is EIP-8130, and EIP-8141 frame transactions are a second target, with `requires: 5792, 7677, 8130, 8141, 8430`. A Keystore Integration section now uses the current grants: a named payer co-signs with a `SPONSOR_PAYER` actor, and a self-paying open payer needs `SELF_PAYER`. Later commits added rate-based token quotes (September 28), dropped endpoint versioning (October 19), and on October 26 renamed the request field to `sender` to match EIP-8430 and EIP-8141 and removed `payer_getSponsorshipBalance`.
 
 It is the first payer-tooling proposal spanning both native-AA families, but not the canonical-set companion ERC, and has no editor review yet.
 
@@ -103,18 +103,18 @@ Base's July 17 [Native Account Abstraction announcement](https://x.com/buildonba
 |---|---|---|
 | Sep 8 | #4924 | Moved EIP-8130 activation from Cobalt to Zenith |
 | Sep 25 | #5247, #5250 | Added the Everest upgrade and moved activation to it |
-| Sep 27 | #5232 | Delegation at `0x01` and k1-only authenticators |
 | Sep 29 | #5366 | Gated the Keystore to Zenith: "Everest has no concept of the Keystore" |
-| Oct 8 | #5451 | Relaxed pool limits; states Zenith "is never scheduled" on mainnet or Sepolia |
+| Nov 10 | #6552 | Moved signing domains to `0x7900`/`0x7901`/`0x7902`, diverging from EIP-8430's `0x79`/`0x7A`/`0x7901` |
+| Nov 17 | #6635, #6642 | Deleted the Keystore as "dead code on every live chain" and renamed the implementation "Base transactions" |
 
-[Cobalt](https://docs.base.org/upgrades/cobalt/overview) went live on Sepolia (September 23) and mainnet (September 30) with B20 token changes and validity transactions, not EIP-8130. The [Everest page](https://docs.base.org/upgrades/everest/overview) lists "Base Transactions (EIP-8430)" as planning with no date for either network. Zenith is Base's permanently unscheduled, genesis-only testing gate, so the Keystore remains a devnet feature on Base's current plan. Base client PR #5664 (Oct 12) fixes "audit finding H-01 in the EIP-8130 audit"; no public audit report was found.
+[Cobalt](https://docs.base.org/upgrades/cobalt/overview) went live on September 30 without EIP-8130. The [Everest page](https://docs.base.org/upgrades/everest/overview) still lists "Base Transactions (EIP-8430)" with no date, and Base's client sets no Everest timestamp for any network. Since November 17 no Base build contains the Keystore, so the EIP-8130 integration has no client implementation. Base PR #5664 (Oct 12) fixes "audit finding H-01 in the EIP-8130 audit"; no public audit report was found. Base's new [Base Transactions specification](https://docs.base.org/specifications/base-transactions) page already lags the merged EIP, still showing a 15,000 base cost.
 
-[Base Vibenet](https://vibes.base.org/), which now redirects to Base's Vibenet page, remains the integration surface. The [builder guide](https://www.eip8130.com/guide) still describes EIP-8130 and `0x79` without mentioning EIP-8430 or the rename, warns that the audit cycle is unfinished, and documents its `viem/eip8130` snippets against chunter-cb's viem fork rather than an upstream viem release.
+The [builder guide](https://www.eip8130.com/guide) still presents the Keystore model as live on [Base Vibenet](https://vibes.base.org/), never mentions EIP-8430, and installs chunter-cb's viem fork. Upstream viem has no module: jxom opened a combined EIP-8130 and ERC-8168 PR (wevm/viem #5618) on November 19 and closed it unmerged 22 minutes later with no stated reason.
 
-Base's [reference implementation](https://github.com/base/eip-8130) last merged on September 2. Its late-August PRs drove the September EIP edits: #92 removed the established-contract flag, #95 reordered scope bits and attached policy by payload length, #97 through #100 collapsed import into `importAccount()` plus `confirmKeystoreImport()`, and #101/#103 restricted direct execution to k1 actors. Open drafts explore transient actors (#105), multichain epochs (#106), and wallet-agnostic policies (#108 onward). 
+Base's [reference implementation](https://github.com/base/eip-8130) last merged on September 2. Its late-August PRs drove the September EIP edits; its open drafts have not moved since September 24.
 
 ---
 
 ## Summary
 
-EIP-8130 trades permissionless validation growth for a smaller direct-authentication surface, now with an explicit permissive lane on L1. The split into a Keystore EIP and EIP-8430 lets clients and wallets adopt the transaction first, and Base's production plan does exactly that: Cobalt shipped without EIP-8130, Everest plans EIP-8430 with no date, and the Keystore stays on devnets. ERC-8168 and ERC-8403 now bridge EIP-8130 and EIP-8141 at the application layer.
+EIP-8130 trades permissionless validation growth for a smaller direct-authentication surface, now with an explicit permissive lane on L1. The split into a Keystore EIP and EIP-8430 lets clients and wallets adopt the transaction first, and Base's production plan does exactly that: Cobalt shipped without EIP-8130, Everest plans EIP-8430 with no date, and Base has removed the Keystore from its client. ERC-8168 and ERC-8403 now bridge EIP-8130 and EIP-8141 at the application layer.

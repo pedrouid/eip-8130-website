@@ -2,11 +2,11 @@
 
 ---
 
-The "Original (Oct 14)" column reflects the baseline established by [PR #11186](https://github.com/ethereum/EIPs/pull/11186), the first version of `eip-8130.md` merged into the ethereum/EIPs repo (merged February 28, 2026). October 14, 2025 is the EIP's `created` frontmatter date (concept inception; the EthMagicians thread itself opened October 24); no spec text existed in the repo at that time, so the comparison below is against the substance of #11186, not a document that existed on that calendar date. "Latest (Oct 21)" reflects `master` after [PR #12386](https://github.com/ethereum/EIPs/pull/12386) (merged October 8, 2026). Since that PR, transaction-format rows describe EIP-8430, the open draft (PR [#12385](https://github.com/ethereum/EIPs/pull/12385)) that now carries the transaction type EIP-8130 used to define.
+The "Original (Oct 14)" column reflects the baseline established by [PR #11186](https://github.com/ethereum/EIPs/pull/11186), the first version of `eip-8130.md` merged into the ethereum/EIPs repo (merged February 28, 2026). October 14, 2025 is the EIP's `created` frontmatter date (concept inception; the EthMagicians thread itself opened October 24); no spec text existed in the repo at that time, so the comparison below is against the substance of #11186, not a document that existed on that calendar date. "Latest (Nov 23)" reflects `master` after [PR #12386](https://github.com/ethereum/EIPs/pull/12386) (merged October 8, 2026) for EIP-8130 and after [PR #12385](https://github.com/ethereum/EIPs/pull/12385) (merged November 23, 2026) for sibling standard EIP-8430, which now carries the transaction type EIP-8130 used to define. Transaction-format rows describe EIP-8430.
 
 ## Structural Comparison
 
-| Aspect | Original (Oct 14) | Latest (Oct 21) |
+| Aspect | Original (Oct 14) | Latest (Nov 23) |
 |---|---|---|
 | **Spec scope and title** | "Account Abstraction by Account Configuration": one EIP defining a transaction type, its validation rules, and the Account Configuration Contract | "Keystore Accounts": the Keystore only, specified as transport-neutral for native transactions, EIP-8141 frame accounts, ERC-4337, and applications. Renamed in PR #12295 (Sep 3); transaction type moved to EIP-8430 in PR #12386 (Oct 8) |
 | **Configuration system** | Account Configuration Contract with most internal mechanics repeated in the EIP | Keystore at `KEYSTORE_ADDRESS`; the canonical Base contracts are authoritative for lower-level mechanics (PR #12135, Aug 11). Consumers must authenticate equivalently to `authenticateActor` |
@@ -54,15 +54,14 @@ In the original model an empty `key_config` slot meant the implicit EOA key was 
 
 ### 5. From Transaction Type to Transport-Neutral Keystore
 
-For ten months EIP-8130 was a transaction type that happened to define an account-configuration contract. The August alignment (PR #12135) made the contracts authoritative for mechanics; the September rename (PR #12295) made the Keystore the proposal's name; PR #12386 (Oct 8) made it the proposal's whole scope. Its new rationale states that authority over an account "should not depend on which transaction format carries an action." EIP-8130 now names EIP-8141 frame accounts and ERC-4337 accounts as consumers alongside the split-out EIP-8430, which turns the site's long-running EIP-8130-versus-EIP-8141 framing into a question of transports versus authority layers. The cost is that the canonical repository holds a merged Keystore integrating with an unmerged transaction type.
+For ten months EIP-8130 was a transaction type that happened to define an account-configuration contract. The August alignment (PR #12135) made the contracts authoritative for mechanics; the September rename (PR #12295) made the Keystore the proposal's name; PR #12386 (Oct 8) made it the proposal's whole scope. Its new rationale states that authority over an account "should not depend on which transaction format carries an action." EIP-8130 now names EIP-8141 frame accounts and ERC-4337 accounts as consumers alongside the split-out EIP-8430, which turns the site's long-running EIP-8130-versus-EIP-8141 framing into a question of transports versus authority layers. For six weeks the canonical repository held a merged Keystore integrating with an unmerged transaction type; EIP-8430's merge on November 23 closed that gap, though the two texts still disagree on a few integration details.
 
 ## Active Proposals That May Change the Comparison
 
-*As of October 21, 2026, eight PRs remain open against EIP-8130, plus the EIP-8430 draft that now carries the transaction format.*
+*As of November 23, 2026, eight PRs remain open against EIP-8130. EIP-8430 has merged and has no open PRs.*
 
 | Proposal | PR | Impact |
 |---|---|---|
-| **AA Transaction Type (EIP-8430)** | [#12385](https://github.com/ethereum/EIPs/pull/12385) | Would give every transaction-format row above a merged home. Until it merges, those rows describe an open draft |
 | **Simplify the Keystore** | [#12462](https://github.com/ethereum/EIPs/pull/12462) | Draft. Would cut scope to OPERATOR and POLICY, remove the policy manager slots and account lock, and add multichain epochs. Would rewrite the scope, policy, lock, and payer rows |
 | **Two-track epochs and transient actors** | [#12334](https://github.com/ethereum/EIPs/pull/12334) | Draft. Multichain epoch and unsequenced mode, `IncrementEpoch`, and a one-transaction actor tier in transient storage |
 | **Four-tier authenticator classes** | [#12210](https://github.com/ethereum/EIPs/pull/12210) | Draft. CANONICAL, PURE, BOUNDED, ARBITRARY mempool tiers over the permissive acceptance policy |

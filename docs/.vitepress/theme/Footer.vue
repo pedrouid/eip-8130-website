@@ -2,12 +2,14 @@
   <footer class="custom-footer">
     <div class="footer-container">
       <div class="footer-col footer-title">
-        <h4>EIP-8130 Keystore Accounts</h4>
+        <h4>EIP-8130 &amp; EIP-8430</h4>
       </div>
       <div class="footer-col">
         <h4>Spec</h4>
         <ul>
-          <li><a href="/current-spec">Current Spec</a></li>
+          <li><a href="/overview">Overview: 8130 + 8430</a></li>
+          <li><a href="/current-spec">EIP-8130 Spec</a></li>
+          <li><a href="/eip-8430">EIP-8430 Spec</a></li>
           <li><a href="/feedback-evolution">Feedback Evolution</a></li>
           <li><a href="/original-spec">Original Spec</a></li>
           <li><a href="/merged-changes">Merged Changes</a></li>
@@ -34,6 +36,14 @@
               target="_blank"
               rel="noopener"
               >EIP-8130 Spec</a
+            >
+          </li>
+          <li>
+            <a
+              href="https://github.com/ethereum/EIPs/pull/12385"
+              target="_blank"
+              rel="noopener"
+              >EIP-8430 Draft PR</a
             >
           </li>
           <li>

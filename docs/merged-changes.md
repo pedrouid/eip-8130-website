@@ -1,6 +1,6 @@
 # Merged Changes
 
-Every pull request touching `EIPS/eip-8130.md`, in commit order, from the original submission (PR [#11186](https://github.com/ethereum/EIPs/pull/11186), merged February 28, 2026) through the most recent merge (PR [#12386](https://github.com/ethereum/EIPs/pull/12386), merged October 8, 2026). Sections below group same-day or same-theme merges; structurally significant PRs get a full why/what/why-it-matters treatment, and smaller changes get a one-line entry. Currently open and closed-without-merge PRs are listed separately at the end of this page. See [Original Spec](/original-spec) for the pre-#11367 baseline and [Original vs Latest](/original-vs-latest) for a structural diff against today's spec.
+Every pull request touching `EIPS/eip-8130.md`, in commit order, from the original submission (PR [#11186](https://github.com/ethereum/EIPs/pull/11186), merged February 28, 2026) through the most recent EIP-8130 merge (PR [#12386](https://github.com/ethereum/EIPs/pull/12386), merged October 8, 2026), plus the merge of sibling standard EIP-8430 (PR [#12385](https://github.com/ethereum/EIPs/pull/12385), November 23, 2026). Sections below group same-day or same-theme merges; structurally significant PRs get a full why/what/why-it-matters treatment, and smaller changes get a one-line entry. Currently open and closed-without-merge PRs are listed separately at the end of this page. Since October 8 the transaction format lives in sibling standard EIP-8430, whose PRs are recorded here alongside EIP-8130's. See [Original Spec](/original-spec) for the pre-#11367 baseline and [Original vs Latest](/original-vs-latest) for a structural diff against today's spec.
 
 ---
 
@@ -95,7 +95,7 @@ The duplicate PR #11144 (opened January 21, closed January 29) is tracked under 
 **PR [#11647](https://github.com/ethereum/EIPs/pull/11647)** — chunter-cb, +24/-3
 
 - **What**: "Add canonical verifier set" introduces the **canonical verifier allowlist** concept, nodes MUST accept a baseline set of well-known verifiers, extensible via a companion ERC. First appearance of the `eth_getAcceptedVerifiers` `canonical` flag.
-- **Why it matters**: Formalizes a node-conformance baseline distinct from "whatever the node feels like allowlisting," directly ancestral to the Canonical Authenticator Set section in today's spec (see [Current Spec](/current-spec)).
+- **Why it matters**: Formalizes a node-conformance baseline distinct from "whatever the node feels like allowlisting," directly ancestral to the Canonical Authenticator Set section in today's spec (see [EIP-8130 Spec](/current-spec)).
 
 **PR [#11651](https://github.com/ethereum/EIPs/pull/11651)** — chunter-cb, +9/-11. Normative MUST/MAY tightening on verifier-allowlist language following #11647.
 
@@ -216,7 +216,7 @@ The duplicate PR #11144 (opened January 21, closed January 29) is tracked under 
 
 - **Why**: The four-bit scope model from PR #11388 (March 9, SIGNATURE/SENDER/PAYER/CONFIG) conflated a full-authority CONFIG bit with escalation risk (any key that could rewrite `actor_config` could just grant itself CONFIG), bundled self-pay and sponsorship under one PAYER bit despite being materially different security boundaries, and gave signing its own SIGNER bit despite signing conferring no authority a key didn't already have.
 - **What**: "Scope grants, PAYER split, operational ERC-1271, account lock" is the biggest structural rewrite since PR #11367 (March 3). Redefines admin as the predicate `scope == 0x00` rather than a separate CONFIG bit. Redefines scope as five independent grant bits: SENDER (0x01), POLICY (0x02), NONCE (0x04), SELF_PAYER (0x08), SPONSOR_PAYER (0x10). Splits PAYER into SELF_PAYER and SPONSOR_PAYER, defined relationally (self-pay vs. sponsorship depends on whether `payer account == sender account`, not an absolute mode). Removes the standalone SIGNER bit, reframing ERC-1271 signing as "operational authority," `operational := admin || (SENDER && !POLICY)`. Simplifies the Account Lock lifecycle to strict lock-then-unlock (no re-lock or cancel-while-locked) via a new `applySignedLockChanges` entry point.
-- **Why it matters**: Naming admin as absence-of-restriction rather than a grantable bit makes self-escalation explicit rather than hiding it. The SELF_PAYER/SPONSOR_PAYER split is a materially different security boundary from the original single PAYER bit: it lets a dedicated gas key fund a sibling key on the same account (SELF_PAYER) while a paymaster hot key can be sponsor-only over a locked treasury (SPONSOR_PAYER). This is the scope model documented in [Current Spec](/current-spec) today.
+- **Why it matters**: Naming admin as absence-of-restriction rather than a grantable bit makes self-escalation explicit rather than hiding it. The SELF_PAYER/SPONSOR_PAYER split is a materially different security boundary from the original single PAYER bit: it lets a dedicated gas key fund a sibling key on the same account (SELF_PAYER) while a paymaster hot key can be sponsor-only over a locked treasury (SPONSOR_PAYER). This is the scope model documented in [EIP-8130 Spec](/current-spec) today.
 
 ---
 
@@ -296,9 +296,21 @@ The duplicate PR #11144 (opened January 21, closed January 29) is tracked under 
 
 ---
 
+## EIP-8430 Merged — November 23, 2026
+
+**PR [#12385](https://github.com/ethereum/EIPs/pull/12385)** — chunter-cb, +471/-0, opened September 28, merged November 23
+
+- **Why**: PR #12386 had already moved the transaction type out of EIP-8130 on October 8, leaving the Keystore's integration section pointing at a draft with no merged text. EIP-8430 gives that transaction a canonical home as a sibling standard that works for plain EOAs.
+- **What**: Adds `EIPS/eip-8430.md`, "AA Transaction Type," as a Draft. Between the October 21 snapshot and merge, nine commits reworked it: intrinsic gas now mirrors EIP-2780's primitives, with `AA_BASE_COST` cut from 15,000 to 12,000, a `first_call_cost` and a `sender_access_cost` for sponsored transactions, payload metering limited to `account_changes`, `calls`, and `metadata`, and a single sender-side calldata floor. The EIP-7708 transfer log was dropped, the nonce is verified before account changes apply, delegation requires `nonce_key 0`, and the open payer's JSON form is fixed to `0x00`.
+- **Why it matters**: For the first time since October 8 both sibling standards have merged text, so the EIP-8130 integration section now targets a canonical document. The merged text also states that "extensions that accept other authenticators MUST meter their authentication data," a requirement on EIP-8130's integration, and its description of the getters EIP-8130 adds (`getTransactionSender()`, `getTransactionSenderActorId()`) does not match EIP-8130's own text (`getTransactionSender()`, `getTransactionCalls()`, `getTransactionGasLimit()`).
+
+**Key review discussion**: abcoathup assigned the number on September 29 and asked for a dedicated forum thread. Editor jochem-brouwer approved on November 23 with "LGTM," which triggered eth-bot's merge; earlier approvals came from non-editor accounts, including an LLM-assisted review. No reviewer objected to the design. It is the first new EIP in the family to merge since EIP-8130's own submission (PR #11186); the four extension drafts remain open.
+
+---
+
 ## Active/Open PRs
 
-*As of October 21, 2026.*
+*As of November 23, 2026.*
 
 ### PR #11578 — "Add opaque_input bytes field"
 
@@ -351,9 +363,9 @@ The duplicate PR #11144 (opened January 21, closed January 29) is tracked under 
 ### PR #12341 — "Optional model-neutral change digest for portable actor changes"
 
 - **Author**: AnkushinDaniil (community)
-- **Opened**: September 15, 2026, +6/-0
+- **Opened**: September 15, 2026, +8/-0
 - **Why**: A key change signed only over outcome fields (domain, chain ID or 0, account, `actorId`, old and new config) could be applied through EIP-8130, another native AA model reading the same record, or another chain.
-- **Proposed change**: An additive `MAY` digest that leaves the sequenced batch digest untouched, motivated by ERC-8403 and its proof of concept.
+- **Proposed change**: An additive `MAY` digest that leaves the sequenced batch digest untouched, motivated by ERC-8403 and its proof of concept. A November 4 commit binds `sequence` and `policyData` into the digest.
 - **Status**: Open, awaiting author review.
 
 ### PR #12462 — "Simplify the Keystore"
@@ -366,9 +378,8 @@ The duplicate PR #11144 (opened January 21, closed January 29) is tracked under 
 
 ### Related EIP drafts
 
-- **PR [#12385](https://github.com/ethereum/EIPs/pull/12385)** — chunter-cb, opened September 28, +463/-0, EIP-8430 "AA Transaction Type," the transaction format split out of EIP-8130. One editor review is still required.
-- **PR [#12218](https://github.com/ethereum/EIPs/pull/12218)** — chunter-cb, opened August 21, +235/-0, EIP-8386 "Transaction Events View," read-only views over the current transaction's log journal. jochem-brouwer requested changes September 19.
-- **PR [#12221](https://github.com/ethereum/EIPs/pull/12221)** — chunter-cb, opened August 21, +441/-0, EIP-8387 "Stateless Accounts" (`requires: 8130`). jochem-brouwer requested changes September 19.
+- **PR [#12218](https://github.com/ethereum/EIPs/pull/12218)** — chunter-cb, opened August 21, +235/-0, EIP-8386 "Transaction Events View," read-only views over the current transaction's log journal. jochem-brouwer requested changes again on November 3, noting "upstream drift": the draft still attributes the Transaction Context precompile and call phases to EIP-8130 rather than EIP-8430.
+- **PR [#12221](https://github.com/ethereum/EIPs/pull/12221)** — chunter-cb, opened August 21, +441/-0, EIP-8387 "Stateless Accounts" (`requires: 8130`). jochem-brouwer requested changes again on November 3; his review notes its account-change numbering does not match the merged EIP-8130 and EIP-8430 texts.
 - **PR [#12222](https://github.com/ethereum/EIPs/pull/12222)** — chunter-cb, opened August 21, +285/-0, EIP-8388 "Keystore Signatures for Execution Txs" (`requires: 8130`). jochem-brouwer requested changes September 19.
 - **PR [#12240](https://github.com/ethereum/EIPs/pull/12240)** — chunter-cb, opened August 25, +316/-0, unnumbered "Keystore Expired Actor Pruning." jochem-brouwer requested changes October 14 and noted failing CI.
 

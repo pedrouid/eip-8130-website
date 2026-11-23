@@ -1,11 +1,11 @@
-# EIP-8130: Keystore Accounts
+# EIP-8130 + EIP-8430: Keystore Accounts and the AA Transaction Type
 
-Source-driven analysis of [EIP-8130](https://eips.ethereum.org/EIPS/eip-8130) (Keystore Accounts, originally "Account Abstraction by Account Configuration"), tracking its design, review history, alternatives, and unresolved questions.
+Source-driven analysis of two sibling native account-abstraction standards: [EIP-8130](https://eips.ethereum.org/EIPS/eip-8130) (Keystore Accounts, originally "Account Abstraction by Account Configuration") and [EIP-8430](https://github.com/ethereum/EIPs/pull/12385) (AA Transaction Type), which was split out of EIP-8130 in October 2026. The site explains each standard, how they complement each other, and how each works on its own, along with their review history, alternatives, and unresolved questions.
 
-Last updated: October 21, 2026. Tracks 49 merged spec PRs through #12386, eight open EIP-8130 PRs, the split-out EIP-8430 transaction type and four extension drafts, and the forum through post #35. Also tracks ERC-8168, ERC-8340, ERC-8403, Base's Keystore implementation and Everest planning, and EIP-8141 through 74 canonical-file commits.
+Last updated: November 23, 2026. Tracks 49 merged EIP-8130 PRs through #12386, EIP-8430 from its merge (PR #12385, November 23), eight open EIP-8130 PRs and four extension drafts, and the forums through EIP-8130 post #35 and EIP-8430 post #6. Also tracks ERC-8168, ERC-8340, ERC-8403, Base's client (which removed the Keystore on November 17) and Everest planning, and EIP-8141 through 81 canonical-file commits and the Hegotá scope debate.
 
 > [!IMPORTANT]
-> EIP-8130 is a Draft proposal. It is not finalized, scheduled for an Ethereum hard fork, or available on Ethereum mainnet. Its transaction format now lives in EIP-8430, an open PR with no merged text. Unless a paragraph is explicitly labeled as analysis, protocol behavior described here summarizes the current draft rather than a deployed system.
+> EIP-8130 and EIP-8430 are Draft proposals. Neither is finalized, scheduled for an Ethereum hard fork, or available on Ethereum mainnet, and both are merged Drafts that can still change. Unless a paragraph is explicitly labeled as analysis, protocol behavior described here summarizes the current draft rather than a deployed system.
 
 ## Research Method
 
@@ -21,7 +21,9 @@ Factual claims are checked against the canonical EIP file, PR diffs and review t
 
 | Document | Description |
 |---|---|
-| [Current Spec Overview](./docs/current-spec.md) | What EIP-8130 proposes today - the Keystore, scopes, authenticators, signed changes, account lock, and its integration with the EIP-8430 transaction type |
+| [Overview: 8130 + 8430](./docs/overview.md) | How the two sibling standards fit together, what each does alone, and how the Keystore fills EIP-8430's extension points |
+| [EIP-8130 Spec](./docs/current-spec.md) | The Keystore - actors, scopes, authenticators, signed changes, account lock, and its integration with EIP-8430 |
+| [EIP-8430 Spec](./docs/eip-8430.md) | The AA Transaction Type - wire format, payer modes, nonces, phased calls with value, delegation, gas |
 | [Feedback Evolution](./docs/feedback-evolution.md) | How community feedback shaped the spec across its phased history |
 | [Original Spec](./docs/original-spec.md) | The October 2025 submission - original design and what it lacked |
 | [Merged Changes](./docs/merged-changes.md) | Every PR (merged, rejected, open) in chronological order with rationale |

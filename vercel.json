@@ -3,7 +3,9 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "redirects": [
+    { "source": "/overview.html", "destination": "/overview", "permanent": true },
     { "source": "/current-spec.html", "destination": "/current-spec", "permanent": true },
+    { "source": "/eip-8430.html", "destination": "/eip-8430", "permanent": true },
     { "source": "/feedback-evolution.html", "destination": "/feedback-evolution", "permanent": true },
     { "source": "/original-spec.html", "destination": "/original-spec", "permanent": true },
     { "source": "/merged-changes.html", "destination": "/merged-changes", "permanent": true },

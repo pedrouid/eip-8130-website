@@ -4,9 +4,11 @@
 
 ## Sources
 
-- Spec: https://github.com/ethereum/EIPs/blob/master/EIPS/eip-8130.md
+- EIP-8130 spec: https://github.com/ethereum/EIPs/blob/master/EIPS/eip-8130.md
+- EIP-8430 spec: https://github.com/ethereum/EIPs/blob/master/EIPS/eip-8430.md
 - All PRs: https://github.com/ethereum/EIPs/pulls?q=is%3Apr+8130
-- EthMagicians thread: https://ethereum-magicians.org/t/eip-8130-account-abstraction-by-account-configurations/25952
+- EIP-8130 EthMagicians thread: https://ethereum-magicians.org/t/eip-8130-account-abstraction-by-account-configurations/25952
+- EIP-8430 EthMagicians thread: https://ethereum-magicians.org/t/eip-8430-aa-transaction-type-split-out-from-8130/29810
 
 ---
 
@@ -65,6 +67,7 @@
 | 2026-09-14 | #12333 | chunter-cb | Aligns scope bits (SENDER renamed OPERATOR), policy storage by length, and parameterless `importAccount()` with the canonical repository |
 | 2026-09-16 | #12320 | chunter-cb | Applies the EIP-7623 calldata floor and trims `requires` |
 | 2026-10-08 | #12386 | chunter-cb | Scopes EIP-8130 to the Keystore and moves the transaction type to EIP-8430 |
+| 2026-11-23 | #12385 | chunter-cb | Adds sibling standard EIP-8430, "AA Transaction Type" (the transaction format split out of EIP-8130), as a Draft |
 
 ### Open
 
@@ -98,9 +101,9 @@
 | 2026-08-26 | [EIP-8397 / PR #12244](https://github.com/ethereum/EIPs/pull/12244) | Merged Oct 14 | EIP-8141 companion adding pure, fixed-gas authenticator signatures with an `IAuthenticator`-shaped interface |
 | 2026-08-29 | [ERC-8403 / ERC PR #1979](https://github.com/ethereum/ERCs/pull/1979) | Open | Account Authority Lifecycle, bound to EIP-8141 and mapped onto the EIP-8130 Keystore |
 | 2026-09-08 – 2026-09-29 | [base/base PR #4924](https://github.com/base/base/pull/4924), [#5250](https://github.com/base/base/pull/5250), [#5366](https://github.com/base/base/pull/5366) | Merged | Moves activation out of Cobalt to Everest and gates the Keystore to the never-scheduled Zenith fork |
-| 2026-09-28 | [EIP-8430 / PR #12385](https://github.com/ethereum/EIPs/pull/12385) | Open | AA Transaction Type split out of EIP-8130 |
+| 2026-11-10 – 2026-11-17 | [base/base PR #6552](https://github.com/base/base/pull/6552), [#6635](https://github.com/base/base/pull/6635), [#6642](https://github.com/base/base/pull/6642) | Merged | Moves Base's signing domains to `0x7900`/`0x7901`/`0x7902`, deletes the Keystore, and renames the implementation "Base transactions" |
 
-The canonical authenticator set's companion ERC still has no assigned number. The Celo CIP-64 discussion (posts #12-23) drove the transaction-type renumbering. Posts #24-26 explored non-admin initiation and actor management. Post #27 (July 30) proposed a permissionless public `POLICY` actor, answered in posts #28-29 (August 23) as an `AlwaysValidAuthenticator`. Posts #30-31 (August 28-30) raised cross-chain admin freshness, posts #32 and #34 discussed phase-skipping refunds, and posts #33 and #35 (September 2-11) led to PR #12320's calldata floor.
+The canonical authenticator set's companion ERC still has no assigned number. The Celo CIP-64 discussion (posts #12-23) drove the transaction-type renumbering. Posts #24-26 explored non-admin initiation and actor management. Post #27 (July 30) proposed a permissionless public `POLICY` actor, answered in posts #28-29 (August 23) as an `AlwaysValidAuthenticator`. Posts #30-31 (August 28-30) raised cross-chain admin freshness, posts #32 and #34 discussed phase-skipping refunds, and posts #33 and #35 (September 2-11) led to PR #12320's calldata floor. Neither the EIP-8130 thread (post #35) nor the EIP-8430 thread (post #6) received a post between October 21 and November 23.
 
 ### Closed (not merged)
 
@@ -134,9 +137,11 @@ The canonical authenticator set's companion ERC still has no assigned number. Th
 | Agusx1211 | Community participant; raised cross-chain admin freshness (post #30) and reviewed the checkpointed Keystore PR #12293 |
 | AnkushinDaniil | Community contributor; authored ERC-8403 and PR #12341, and reviewed the EIP-8387, EIP-8388, and EIP-8430 drafts |
 | chugarchugarr | Community participant; flagged the config-change auth blob leaking into `replay_id` on the EIP-8430 thread |
-| jochem-brouwer | EIP editor; requested changes on the EIP-8386, EIP-8387, EIP-8388, and pruning drafts |
+| jochem-brouwer | EIP editor; approved the EIP-8430 merge (#12385) and requested changes on the EIP-8386, EIP-8387, EIP-8388, and pruning drafts |
 | leekt (taek.eth) | Author of EIP-8397, the EIP-8141 companion with an `IAuthenticator`-shaped authenticator scheme |
 | pedrouid | Proposed the closed three-EIP decomposition (#12248) and the open checkpointed Keystore PRs (#12293, #12313) |
+| sm-stack | Built an EIP-8288 aggregation proof of concept on OP Stack using the EIP-8130 Keystore and EIP-8430 transaction |
+| xenoliss | Base client contributor; moved Base's signing domains and removed the Keystore from Base's client (base/base #6552, #6635) |
 
 ---
 
@@ -145,13 +150,13 @@ The canonical authenticator set's companion ERC still has no assigned number. Th
 - [Native Account Abstraction](https://x.com/buildonbase/status/2078132881017245881)
 - [Cobalt](https://docs.base.org/upgrades/cobalt/overview)
 - [Everest](https://docs.base.org/upgrades/everest/overview)
+- [Base Transactions](https://docs.base.org/specifications/base-transactions)
 - [Base Vibenet](https://vibes.base.org/)
 - [EIP-8130 Builder Guide](https://www.eip8130.com/guide)
 - [Base EIP-8130 Reference Implementation](https://github.com/base/eip-8130)
 - [ERC-8340: Transaction Metadata Encoding](https://ethereum-magicians.org/t/erc-8340-transaction-metadata-encoding/29022)
 - [Frame Transactions vs. SchemedTransactions for Post-Quantum Ethereum](https://ethereum-magicians.org/t/frame-transactions-vs-schemedtransactions-for-post-quantum-ethereum/28056)
 - [EIP-8141 Demo](https://demo.eip-8141.ethrex.xyz/)
-- [EIP-8430: AA Transaction Type (Split out from 8130)](https://ethereum-magicians.org/t/eip-8430-aa-transaction-type-split-out-from-8130/29810)
 - [EIP-8386: Transaction Events View](https://ethereum-magicians.org/t/eip-8386-transaction-events-view/29472)
 - [EIP-8387: Stateless Accounts](https://ethereum-magicians.org/t/eip-8387-stateless-accounts/29473)
 - [Composable Native Account Abstraction](https://ethereum-magicians.org/t/composable-native-account-abstraction/29526)
@@ -161,6 +166,9 @@ The canonical authenticator set's companion ERC still has no assigned number. Th
 - [EIP-8397: Frame Authenticator Signatures](https://ethereum-magicians.org/t/eip-8397-frame-authenticator-signatures/29517)
 - [Frame Transaction Breakout #2, August 25, 2026](https://ethereum-magicians.org/t/frame-transaction-breakout-2-august-25-2026/29419)
 - [All Core Devs - Execution (ACDE) #244, August 27, 2026](https://ethereum-magicians.org/t/all-core-devs-execution-acde-244-august-27-2026/29468)
+- [It's time to scale the trust: EIP-8288 on OP Stack](https://ethresear.ch/t/its-time-to-scale-the-trust-eip-8288-on-op-stack/26208)
+- [An Ethlabs view on post-quantum and post-AI timelines: pqai27](https://ethereum-magicians.org/t/an-ethlabs-view-on-post-quantum-and-post-ai-timelines-pqai27/30351)
+- [Thoughts on pqai, Hegota, and FOCIL](https://ethereum-magicians.org/t/thoughts-on-pqai-hegota-and-focil/30421)
 - [Why Decentralized State is Important for Ethereum](https://ethresear.ch/t/why-decentralized-state-is-important-for-ethereum/25622)
 
 ---

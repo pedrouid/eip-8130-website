@@ -4,7 +4,7 @@
 
 ## TL;DR
 
-EIP-8130's current canonical set has no post-quantum authenticator. Its extensibility story is architectural: anyone can deploy an `IAuthenticator`, and since PR [#12204](https://github.com/ethereum/EIPs/pull/12204) (Aug 19) the activation question has an answer. On a base layer the enshrined canonical set changes only through a hard fork; other chains may extend it through the companion ERC; and a permissive chain can accept a non-canonical PQ authenticator on the transaction path within `MAX_AUTHENTICATION_GAS`, at metered rather than enshrined cost. "No hard fork required" is therefore false for L1 canonical status.
+EIP-8130's current canonical set has no post-quantum authenticator. Its extensibility story is architectural: anyone can deploy an `IAuthenticator`, and since PR [#12204](https://github.com/ethereum/EIPs/pull/12204) (Aug 19) the activation question has an answer. On a base layer the enshrined canonical set changes only through a hard fork; other chains may extend it through the companion ERC; and a permissive chain can accept a non-canonical PQ authenticator on the transaction path within `MAX_AUTHENTICATION_GAS`, at metered rather than enshrined cost. "No hard fork required" is therefore false for L1 canonical status. Its sibling EIP-8430 is secp256k1-only on its own; a PQ signature reaches it only through the EIP-8130 integration, and open draft EIP-8388 would extend the same Keystore authentication to EIP-1559 and EIP-2930 transactions.
 
 The most important comparison correction is EIP-8202. Its current canonical draft does **not** contain P-256 or Falcon-512. It defines secp256k1 plus `SCHEME_EPHEMERAL_K1`, a Merkle-committed sequence of single-use secp256k1 keys that the proposal describes as quantum-safe against retrospective key recovery. EIP-8141 takes another path: arbitrary witness bytes can be verified by account code, EIP-8397 adds permissionless pure authenticators at a fixed gas cost, and the merged EIP-8288 sibling specifies in-mempool signature and proof aggregation.
 
@@ -37,7 +37,7 @@ Because actors reference authenticators by address, an account adopts a newly ca
 - **No committed PQ gas schedule.** A non-canonical PQ authenticator must fit under `MAX_AUTHENTICATION_GAS`; a canonical one would need its own enshrined constant.
 - **No fast L1 path to canonical PQ.** The process is now defined, but it is a hard fork.
 
-Open extension EIP-8388 would let EIP-1559 and EIP-2930 transactions authenticate through the Keystore, so a future PQ actor could sign ordinary transaction types too.
+Open extension EIP-8388 would let EIP-1559 and EIP-2930 transactions authenticate through the Keystore, so a future PQ actor could sign ordinary transaction types too. The first public experiment pairing the Keystore with PQ aggregation came from outside the EIP: sm-stack's November 2 [OP Stack proof of concept](https://ethresear.ch/t/its-time-to-scale-the-trust-eip-8288-on-op-stack/26208) for EIP-8288 runs on EIP-8130 and EIP-8430 and adds a "statement authenticator" whose actors bind a proving program's verifying key, a key, and a format tag, so the PQ signature stays out of the transaction and only aggregated statements reach the chain. It is a prototype, not a canonical authenticator.
 
 `DEFAULT_EOA_REVOKED` is useful preparation, not cryptography. New and imported accounts do not retain an implicit secp256k1 self-actor unless they explicitly add one, which avoids accidentally leaving a classical fallback after a wallet chooses another authenticator.
 

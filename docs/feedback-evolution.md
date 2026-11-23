@@ -184,8 +184,32 @@ The day #12386 merged, chunter-cb opened a draft cutting scope to OPERATOR and P
 
 ---
 
+## Phase 12: EIP-8430 Merges, the Keystore Loses Its First Adopter (October 22 – November 23, 2026)
+
+### L1 scope debate passes over the pair (ACDE #248, October 22, to ACDE #249, November 19)
+
+No call around Devcon (November 3) recorded a new AA decision; EIP-8141 stayed Scheduled for Inclusion. The debate shifted to fork scope under post-quantum pressure. Ethlabs' [pqai27 post](https://ethereum-magicians.org/t/an-ethlabs-view-on-post-quantum-and-post-ai-timelines-pqai27/30351) (November 11) put frames on its critical path, and on November 17 soispoke wrote that "we need Frames for PQ," calling another transaction type a "hacky alternative." The ACDE #249 slide of five Hegotá scope options (November 19) ranged from enshrined PQ signatures without frames to a normal scope; none includes EIP-8130 or EIP-8430, and the frameless option drew no support. The call's only EIP-8130 mention came in its chat, where Mislav (Ethlabs) said a smooth PQ transition needs key management, "something like 8130 in the default account." This site reads that as a hint that the Keystore's ideas may reach L1 through frames rather than as their own fork item. Neither EIP's forum thread received a post in this window.
+
+### An OP Stack proof of concept builds on the pair (ethresear.ch, November 2)
+
+sm-stack's [EIP-8288 on OP Stack](https://ethresear.ch/t/its-time-to-scale-the-trust-eip-8288-on-op-stack/26208) chose the Keystore and the `0x79` transaction over frames because the pair "looks likely to reach L2s first." It adds a statement authenticator that keeps PQ signatures out of the transaction: the clearest outside use of the split so far, with EIP-8130 as an authority layer and EIP-8430 as transport.
+
+### Editors flag pre-split drift (PRs #12218 and #12221, November 3)
+
+jochem-brouwer's re-reviews of EIP-8386 and EIP-8387 found both still attribute the Transaction Context precompile, call phases, and account-change numbering to EIP-8130, under the heading "upstream drift." The extension drafts had not caught up with the split a month after it merged.
+
+### Base keeps the transaction and deletes the Keystore (base/base PRs #6552, November 10; #6635 and #6642, November 17)
+
+Base's client first moved every signing domain under `0x79` because `0x7A` "could be a future EIP-2718 transaction type," diverging from the EIP-8430 draft. A week later it deleted the Keystore outright, reasoning that the never-scheduled test fork made it "dead code on every live chain," and renamed the implementation "Base transactions." EIP-8130's only announced adopter now implements EIP-8430 alone.
+
+### EIP-8430 merges (PR #12385, opened September 28, merged November 23)
+
+Nine late commits rebased EIP-8430's gas schedule on EIP-2780 primitives, cutting the base cost to 12,000, and tightened delegation and nonce ordering. Editor jochem-brouwer approved with "LGTM" and eth-bot merged it the same minute. The merged text still uses the `0x7A` payer domain Base abandoned, and it lists Transaction Context getters that EIP-8130 does not define, so the siblings enter their first period with both texts merged and not fully reconciled.
+
+---
+
 ## Where Things Stand
 
-As of October 21, 2026, EIP-8130 is a Draft titled "Keystore Accounts" with 49 merged spec PRs, the latest being #12386's transaction-type split. Its transaction format lives in open EIP-8430 (PR #12385), and eight EIP-8130 PRs are open, including draft #12462's proposal to cut scope to two bits and remove account lock. Four extension EIPs (8386, 8387, 8388, and the unnumbered pruning draft) await editor fixes. The forum thread reaches post #35. Base's Cobalt shipped without EIP-8130; Everest plans EIP-8430 with no date, and Base keeps the Keystore behind a fork it does not schedule in production.
+As of November 23, 2026, both sibling standards are merged Drafts: EIP-8130 ("Keystore Accounts") with 49 merged PRs and no merge since October 8, and EIP-8430 ("AA Transaction Type") since today. Eight EIP-8130 PRs and four extension drafts remain open. Neither forum thread has moved past posts #35 and #6. EIP-8141 holds the Hegotá slot while the fork's scope is re-debated, and Base, which deleted its Keystore implementation on November 17, plans only EIP-8430 for an unscheduled Everest upgrade.
 
-For the mechanical PR-by-PR record, see [Merged Changes](/merged-changes). For the spec as it stands today, see [Current Spec](/current-spec).
+For the mechanical PR-by-PR record, see [Merged Changes](/merged-changes). For the spec as it stands today, see [EIP-8130 Spec](/current-spec).

@@ -1,8 +1,8 @@
-# EIP-8130 Research - Project Instructions
+# EIP-8130 + EIP-8430 Research - Project Instructions
 
-This repo tracks the evolution of EIP-8130 (Keystore Accounts, originally titled Account Abstraction by Account Configuration). It is a VitePress documentation site with research documents, a landing page, and supporting infrastructure. These instructions ensure any contributor (human or agent) can update and maintain the repo consistently.
+This repo tracks two sibling standards: EIP-8130 (Keystore Accounts, originally titled Account Abstraction by Account Configuration) and EIP-8430 (AA Transaction Type). They were one proposal until PR #12386 (Oct 8, 2026) moved the transaction type out of EIP-8130 into EIP-8430. The site is organized around explaining both standards, how they complement each other, and how each works on its own: they are designed to compose, but neither requires the other, so never present them as mutually exclusive or as one standard. It is a VitePress documentation site with research documents, a landing page, and supporting infrastructure. These instructions ensure any contributor (human or agent) can update and maintain the repo consistently.
 
-This site is the mirror image of a sibling repo, `eip-8141-website`, which tracks EIP-8141 (Frame Transaction) as its home EIP. Here, EIP-8130 is the featured proposal and EIP-8141 is one of the alternatives. When in doubt about a methodology question this file doesn't cover, the sibling repo's `AGENTS.md` uses the same conventions and can be consulted, but always retarget "the home EIP" to EIP-8130 when doing so.
+This site is the mirror image of a sibling repo, `eip-8141-website`, which tracks EIP-8141 (Frame Transaction) as its home EIP. Here, the EIP-8130 + EIP-8430 pair is featured and EIP-8141 is one of the alternatives. When in doubt about a methodology question this file doesn't cover, the sibling repo's `AGENTS.md` uses the same conventions and can be consulted, but always retarget "the home EIP" to EIP-8130 when doing so.
 
 ---
 
@@ -15,7 +15,9 @@ This site is the mirror image of a sibling repo, `eip-8141-website`, which track
 ├── vercel.json                        # .html redirects for URL stability
 ├── docs/
 │   ├── index.md                       # VitePress home page (hero, audience routes, examples)
-│   ├── current-spec.md                # Current spec overview (Account Configuration, authenticators, tx format, mempool)
+│   ├── overview.md                    # How EIP-8130 and EIP-8430 fit together, alone and combined (the site's entry point)
+│   ├── current-spec.md                # EIP-8130 spec: Keystore, actors, scopes, authenticators, signed changes, EIP-8430 integration
+│   ├── eip-8430.md                    # EIP-8430 spec: wire format, payer modes, nonces, calls, delegation, gas (Spec category, not an alternative)
 │   ├── feedback-evolution.md          # Community feedback organized by chronological phase
 │   ├── original-spec.md               # Original Oct 2025 submission and what it lacked
 │   ├── merged-changes.md              # Every PR (merged, closed, open) with rationale
@@ -54,7 +56,7 @@ This site is the mirror image of a sibling repo, `eip-8141-website`, which track
 
 | Category | Purpose | Current docs |
 |---|---|---|
-| **Spec** | How EIP-8130 works and how it got here | Current Spec, Feedback Evolution, Original Spec, Merged Changes, Original vs Latest |
+| **Spec** | How EIP-8130 and EIP-8430 work, how they fit together, and how they got here | Overview, EIP-8130 Spec, EIP-8430 Spec, Feedback Evolution, Original Spec, Merged Changes, Original vs Latest |
 | **Topics** | Analytical deep-dives beyond the spec itself | Authenticator Model, Cross-Chain Accounts, Mempool Safety, PQ Scheme Agility, Developer Tooling, Competing Standards |
 | **Alternatives** | Per-proposal pages for each alternative/complementary EIP | EIP-8141, EIP-8175, EIP-8202, EIP-8223, EIP-8224, EIP-XXXX (Tempo-like) |
 | **Resources** | Reference material, index, Q&A | FAQ, Glossary, Appendix |
@@ -74,7 +76,7 @@ This site is the mirror image of a sibling repo, `eip-8141-website`, which track
 
 ### VitePress (docs/.vitepress/)
 
-- **config.ts**: Defines nav header and sidebar. Nav has: Home, Spec (dropdown), Topics (dropdown), FAQ. **Alternatives is intentionally not in the nav** (see the Alternatives-never-in-nav rule above). Sidebar has four groups (Spec, Topics, Alternatives, Resources) with Appendix last in Resources. Keep these in sync when adding/removing docs.
+- **config.ts**: Defines nav header and sidebar. Nav has: Home, Spec (dropdown, opening with Overview, EIP-8130 Spec, and EIP-8430 Spec), Topics (dropdown), FAQ. `eip-8430.md` is a Spec page, not an Alternative, even though its slug matches the `eip-NNNN` pattern of alternative pages. **Alternatives is intentionally not in the nav** (see the Alternatives-never-in-nav rule above). Sidebar has four groups (Spec, Topics, Alternatives, Resources) with Appendix last in Resources. Keep these in sync when adding/removing docs.
 - **Footer.vue**: 4-column grid (site title, Spec, Topics, Resources with external links). **No Alternatives column** — Alternatives pages are sidebar-only. Does NOT include FAQ or Appendix as standalone footer links beyond the Resources column.
 - **Layout.vue**: Wraps VitePress default layout, injects Footer via `#layout-bottom` slot.
 - **custom.css**: Defines the red brand palette (`--vp-c-brand-1/2/3`, `--vp-c-brand-soft`, button variables, hero gradient) for both light and dark mode, plus the global `white-space: nowrap` rule on first-column table cells. Do not remove either block. **This is the one deliberate visual difference from the sibling EIP-8141 site**, which uses the VitePress default purple; keep this site red.
@@ -83,8 +85,8 @@ This site is the mirror image of a sibling repo, `eip-8141-website`, which track
 ### Landing Page (docs/index.md)
 
 - Uses VitePress `layout: home` with hero, actions, and features in YAML frontmatter
-- Hero buttons: "Read the Overview" (brand, links `/current-spec`) and "Try the Demo" (alt, links the live demo at `https://vibes.base.org/`). The demo is also linked in the header nav ("Demo") and the footer Resources column ("Live Demo"), mirroring the sibling EIP-8141 site
-- Below frontmatter: markdown sections routing readers by intent, then a mechanism walkthrough (Account Configuration Contract, authenticator interface, transaction format, gas sponsorship)
+- Hero names both standards ("EIP-8130 + EIP-8430"). Hero buttons: "Read the Overview" (brand, links `/overview`) and "Try the Demo" (alt, links the live demo at `https://vibes.base.org/`). The demo is also linked in the header nav ("Demo") and the footer Resources column ("Live Demo"), mirroring the sibling EIP-8141 site
+- Below frontmatter: markdown sections routing readers by intent, then a side-by-side of the two standards and a mechanism walkthrough of each (Keystore and authenticator interface for EIP-8130; transaction format and payer modes for EIP-8430, showing behavior alone and with the Keystore)
 - Feature card `details` strings in the YAML frontmatter must be 100 characters or fewer to keep the grid visually balanced
 
 ### Formatting Rules
@@ -111,7 +113,9 @@ This site is the mirror image of a sibling repo, `eip-8141-website`, which track
 
 | Input | Source | Purpose |
 |---|---|---|
-| Latest spec | `https://github.com/ethereum/EIPs/blob/master/EIPS/eip-8130.md` | Ground truth for current state |
+| Latest EIP-8130 spec | `https://github.com/ethereum/EIPs/blob/master/EIPS/eip-8130.md` | Ground truth for the Keystore |
+| Latest EIP-8430 spec | `EIPS/eip-8430.md` on `master` once merged; until then the head of PR #12385 (`gh pr diff --repo ethereum/EIPs 12385`) | Ground truth for the transaction type |
+| EIP-8430 PRs and thread | `gh pr list --repo ethereum/EIPs --search "8430" --state all`, plus `https://ethereum-magicians.org/t/eip-8430-aa-transaction-type-split-out-from-8130/29810` | EIP-8430's own history, tracked with the same rigor as EIP-8130's |
 | Closed/merged PRs | `gh pr list --repo ethereum/EIPs --search "8130" --state all` | Chronological record of spec changes; cross-check against `gh api repos/ethereum/EIPs/commits --paginate -f path=EIPS/eip-8130.md` for anything the text search misses |
 | Open PRs | `gh pr list --repo ethereum/EIPs --search "8130" --state open` | Pending proposals and context |
 | ERC-layer proposals | `gh pr list --repo ethereum/ERCs --search "8130" --state all` | Application-layer standards that build on or reference EIP-8130. The `ethereum/ERCs` repo is separate from `ethereum/EIPs` and is easy to miss (this bit the sibling EIP-8141 site's early syncs, which found ERC-8286 only after a manual nudge; check every sync even if a search has come up empty before) |
@@ -130,8 +134,8 @@ When updating the repo to capture new developments, follow this checklist in ord
 
 ### 1. Gather New Data
 
-- **Fetch latest spec** from `master` branch, compare against `current-spec.md`
-- **Search for new PRs** since the last documented PR (check `appendix.md` for the most recent), using both the `gh pr list --search "8130"` text search and the `gh api .../commits?path=EIPS/eip-8130.md` commit-history cross-check
+- **Fetch both latest specs**: EIP-8130 from `master` (compare against `current-spec.md`) and EIP-8430 from `master` or the PR #12385 head (compare against `eip-8430.md`). Check that `overview.md` still describes the integration boundary correctly
+- **Search for new PRs** since the last documented PR (check `appendix.md` for the most recent), using both the `gh pr list --search "8130"` and `--search "8430"` text searches and the `gh api .../commits?path=EIPS/eip-8130.md` (and `eip-8430.md`) commit-history cross-checks
 - **Search the `ethereum/ERCs` repo too**, not just `ethereum/EIPs`, every sync regardless of past results
 - **Read all comments** on new and updated PRs, PR comments often contain critical design rationale (chunter-cb's review threads in particular; several rejected PRs in `merged-changes.md` were resolved entirely through comment discussion, not a follow-up diff)
 - **Read new EthMagicians posts** beyond the last documented post number (check `appendix.md`), verifying real posts per the WebFetch caveat in Research Data Sources above
@@ -145,7 +149,9 @@ Each document has a specific scope. Update only the relevant ones:
 
 | Document | When to update |
 |---|---|
-| `current-spec.md` | Any merged PR that changes spec text or constants. Pending and open proposals are tracked in `merged-changes.md` under `## Active/Open PRs`, not here. |
+| `overview.md` | Any change to how the two standards relate: extension points, the integration section, `requires` headers, deployment status of either standard, or new proposals building on one or both. |
+| `current-spec.md` | Any merged EIP-8130 PR that changes spec text or constants. Pending and open proposals are tracked in `merged-changes.md` under `## Active/Open PRs`, not here. |
+| `eip-8430.md` | Any EIP-8430 commit or PR that changes its text, constants, or status. |
 | `feedback-evolution.md` | New EthMagicians posts, new ethresear.ch posts, AND every significant merged PR (see criteria in step 1), add a named entry in the current phase capturing the rationale and review debate, not just the diff. Audit phase length and thematic coherence per §2b; split, rename, or renumber phases when they drift. |
 | `original-spec.md` | Rarely, only if new context about the original submission surfaces |
 | `merged-changes.md` | Every new PR (merged, closed, opened) and every status change on existing open PRs. Significant merged PRs get their own dated section with per-area bullets and a review-discussion paragraph, not a one-liner. Document structure is enforced per §2c: chronological merged sections first, then `## Active/Open PRs`, then `## Rejected/Closed PRs`. The two status buckets always sit at the end. |
@@ -166,7 +172,7 @@ When a PR is classified as significant (step 1 criteria), a partial update is a 
 
 1. **`merged-changes.md`** — add a dedicated section titled by theme and date (e.g. `## Scope Grants Redesign — July 13, 2026`). Include: author + merge date, diff stats, why/what/why-it-matters bullets, a **Key review discussion** note quoting or naming the reviewers and their objections/approvals if any exist, and a one-line significance note comparing it to past structural changes.
 2. **`feedback-evolution.md`** — add a named entry inside the current phase's subsection for the PR. Cite `PR #<num>, opened <date>, merged <date>`. Summarize the rationale and the review debate, not the diff.
-3. **`current-spec.md`** — update the spec body to match the new behavior. (Pending-proposals tracking lives in `merged-changes.md` under `## Active/Open PRs`.)
+3. **`current-spec.md`** (EIP-8130) or **`eip-8430.md`** (EIP-8430) — update the spec body to match the new behavior, and update `overview.md` if the change moves the boundary between the two standards. (Pending-proposals tracking lives in `merged-changes.md` under `## Active/Open PRs`.)
 4. **`original-vs-latest.md`** — refresh the Latest column for every structural change the PR introduced.
 5. **Topic docs** — for every area the PR touched, update the matching topic doc: authenticator interface / canonical set → `authenticator-model.md`; cross-chain replay → `cross-chain-accounts.md`; mempool/statelessness/async-execution → `mempool-safety.md`; PQ-relevant authenticator or scheme changes → `pq-scheme-agility.md`; wallet/app surface changes → `developer-tooling.md`; interactions with competing EIPs → `competing-standards.md` and the relevant per-EIP page.
 6. **`faq.md`** — add or update any question whose answer the PR changed.
@@ -281,6 +287,7 @@ A common stale-date trap: phase-range headers in `feedback-evolution.md` get ext
 
 ## Writing Principles
 
+- **Sibling framing**: Describe EIP-8130 and EIP-8430 together. When a page discusses one, say how the point applies to the other (alone, and combined). Comparisons with alternatives compare the pair, noting where EIP-8430 alone or the Keystore alone differs
 - **Traceability**: Every claim links to a specific PR number, EthMagicians post number, or commit
 - **Direct quotes**: Use author/reviewer quotes to capture rationale, paraphrasing loses nuance
 - **Rejected PRs matter**: Closed PRs reveal the design space the authors explored and chose against

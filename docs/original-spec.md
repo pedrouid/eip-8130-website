@@ -1,6 +1,6 @@
 # Original Spec
 
-This page describes EIP-8130 as it was first merged into `ethereum/EIPs`, before any of the renames, structural rewrites, or new mechanisms covered in [Merged Changes](/merged-changes) and [Original vs Latest](/original-vs-latest). It is a historical snapshot, not a description of the spec as it stands today. For the current mechanics, see [Current Spec](/current-spec).
+This page describes EIP-8130 as it was first merged into `ethereum/EIPs`, before any of the renames, structural rewrites, or new mechanisms covered in [Merged Changes](/merged-changes) and [Original vs Latest](/original-vs-latest). It is a historical snapshot, not a description of the spec as it stands today. For the current mechanics, see [EIP-8130 Spec](/current-spec).
 
 ---
 
@@ -39,7 +39,7 @@ The core shape of the original submission is still recognizable, though it is no
 
 Each of these went through two rename cycles (a first pass to a "generic authority-holder" framing, then a second pass distinguishing scoped authority from full ownership). See [Merged Changes](/merged-changes) for the full narrative of why each rename happened.
 
-**Well-known verifiers**: the original submission specified five: K1 (secp256k1/ECDSA), P256 (secp256r1 raw), WebAuthn P256, BLS (BLS12-381), and DELEGATE (delegated validation to another account, limited to a single hop). Today's canonical authenticator set is narrower, comprising k1, p256, passkey, and delegate; BLS is not part of the current canonical set described in [Current Spec](/current-spec).
+**Well-known verifiers**: the original submission specified five: K1 (secp256k1/ECDSA), P256 (secp256r1 raw), WebAuthn P256, BLS (BLS12-381), and DELEGATE (delegated validation to another account, limited to a single hop). Today's canonical authenticator set is narrower, comprising k1, p256, passkey, and delegate; BLS is not part of the current canonical set described in [EIP-8130 Spec](/current-spec).
 
 **Account mutation**: the original submission used two separate transaction fields for changing an account's state: `account_initialization` (CREATE2-based new-account creation carrying an `initial_keys` list) and `key_changes` (a separate array of portable, cross-chain key-change operations). These were two independent mechanisms with no shared entry-type schema.
 
@@ -59,7 +59,7 @@ Each of these went through two rename cycles (a first pass to a "generic authori
 
 ## What the Original Submission Lacked
 
-Compared to the spec as it stands today (see [Current Spec](/current-spec) and [Original vs Latest](/original-vs-latest) for the full detail), the original merged submission (PR #11186) did not have:
+Compared to the spec as it stands today (see [EIP-8130 Spec](/current-spec) and [Original vs Latest](/original-vs-latest) for the full detail), the original merged submission (PR #11186) did not have:
 
 - **No scope-bit permission model.** The only permission primitive was a `key_policy` bitfield (`revoked`, `requireSponsor`); a `requireSponsor` key could authenticate but not draw the account's ETH for gas. Beyond that, every authorized key had equal authority. There was no SENDER/PAYER/SIGNATURE/CONFIG bit distinction, let alone the current five-bit SENDER/POLICY/NONCE/SELF_PAYER/SPONSOR_PAYER grant model. The first scope-bit model arrived in PR #11388 (March 9); it was substantially redesigned again in PR #11918 (July 13).
 - **No Account Lock mechanism.** Nothing let an account freeze its own configuration against further changes. This arrived in the very next merged PR, #11367 (March 3), and was itself simplified later in PR #11918.

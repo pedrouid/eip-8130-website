@@ -1,9 +1,9 @@
-# Current Spec
+# EIP-8130 Spec: Keystore Accounts
 
-EIP-8130, now titled **"Keystore Accounts,"** is a Core, Standards Track proposal by Chris Hunter (@chunter-cb, Coinbase/Base), created 2025-10-14, with 49 merged PRs against the spec file as of 2026-10-21. PR [#12295](https://github.com/ethereum/EIPs/pull/12295) (Sep 3) replaced the original title, "Account Abstraction by Account Configuration." PR [#12386](https://github.com/ethereum/EIPs/pull/12386) (Oct 8) then scoped the EIP to the Keystore alone and moved the transaction type into a separate proposal, [EIP-8430](https://github.com/ethereum/EIPs/pull/12385) ("AA Transaction Type"). The frontmatter now requires only EIPs 170 and 1014.
+EIP-8130, now titled **"Keystore Accounts,"** is a Core, Standards Track proposal by Chris Hunter (@chunter-cb, Coinbase/Base), created 2025-10-14, with 49 merged PRs against the spec file as of 2026-11-23. PR [#12295](https://github.com/ethereum/EIPs/pull/12295) (Sep 3) replaced the original title, "Account Abstraction by Account Configuration." PR [#12386](https://github.com/ethereum/EIPs/pull/12386) (Oct 8) then scoped the EIP to the Keystore alone and moved the transaction type into its sibling, [EIP-8430](/eip-8430) ("AA Transaction Type"). The frontmatter now requires only EIPs 170 and 1014. Read the two together: the [Overview](/overview) explains how they combine and why neither requires the other.
 
 ::: warning Proposal status
-This page summarizes the canonical **Draft**. EIP-8130 is not finalized, scheduled for an Ethereum L1 hard fork, or active on Ethereum mainnet. EIP-8430, which now carries the transaction format, exists only as open PR #12385 and has no merged text in the EIPs repository. Base's [Cobalt upgrade](https://docs.base.org/upgrades/cobalt/overview) went live on Sepolia (Sep 23) and mainnet (Sep 30) **without** EIP-8130. Its [Everest upgrade](https://docs.base.org/upgrades/everest/overview) now plans "Base Transactions (EIP-8430)" with no date, and Base's client gates the Keystore behind a test-only fork that is never scheduled on Base mainnet or Sepolia. Present-tense wording below describes the proposal's rules, not a deployed Ethereum feature. Open PRs are called out explicitly.
+This page summarizes the canonical **Draft**. EIP-8130 is not finalized, scheduled for an Ethereum L1 hard fork, or active on Ethereum mainnet. EIP-8430, which now carries the transaction format, merged as a Draft on November 23, 2026. Base's [Cobalt upgrade](https://docs.base.org/upgrades/cobalt/overview) went live on Sepolia (Sep 23) and mainnet (Sep 30) **without** EIP-8130. Its [Everest upgrade](https://docs.base.org/upgrades/everest/overview) plans "Base Transactions (EIP-8430)" with no date. Base's client first gated the Keystore behind a never-scheduled test fork, then removed it entirely on November 17 (base/base PR #6635), so no client currently implements the EIP-8130 integration. Present-tense wording below describes the proposal's rules, not a deployed Ethereum feature. Open PRs are called out explicitly.
 :::
 
 The central design still separates authentication from account logic: an authenticator answers "who signed," and the Keystore answers "what may that actor do." What changed in October is where that separation lives. The Keystore is now specified as **transport-neutral** infrastructure usable through ordinary EVM calls, ERC-4337 accounts, EIP-8141 frame accounts, and natively by EIP-8430. Neither EIP requires the other.
@@ -12,17 +12,9 @@ Spec source: [github.com/ethereum/EIPs/blob/master/EIPS/eip-8130.md](https://git
 
 ---
 
-## What the EIP Covers After the Split
+## Where EIP-8130 Ends and EIP-8430 Begins
 
-| Lives in EIP-8130 (merged) | Lives in EIP-8430 (open PR #12385) |
-|---|---|
-| Keystore state, actors, scope, expiry, policies | `AA_TX_TYPE = 0x79` wire format and `AA_PAYER_TYPE = 0x7A` payer domain |
-| Signed account changes, local and multichain channels, epochs | 2D nonces (`nonce_key 0` is the account nonce), nonce-free mode, `replay_id` |
-| Account lock, creation, import | Phased `calls` with native value, bound and open payer modes |
-| `authenticateActor` / `validateSignature`, canonical authenticator set | Delegation entry (`0x01`), intrinsic gas, fees, receipts, RPC |
-| The integration rules a consumer must follow, including EIP-8430's native path | Extension points: authenticator selector, authorization-rules hook, reserved account-change types |
-
-Without the Keystore, EIP-8430 is a secp256k1-only batching and sponsorship transaction for today's EOAs. EIP-8130's "AA Transaction Type Integration" section fills its extension points with Keystore authentication, scopes, and two account-change entries.
+EIP-8130 owns authority: Keystore state, actors, scope, expiry, policies, signed changes, epochs, lock, creation, import, signature verification, and the canonical authenticator set. [EIP-8430](/eip-8430) owns transport: the `0x79` wire format, payer modes, nonces, phased calls, delegation, gas, receipts, and RPC. The one section that touches both, "AA Transaction Type Integration," lives here in EIP-8130 and fills EIP-8430's extension points. The [Overview](/overview) maps each extension point side by side.
 
 ---
 
@@ -169,24 +161,14 @@ EIP-8130 specifies one native consumer in full. On a chain running both proposal
 - **Account-change entries.** EIP-8130 assigns create (`0x02`: `user_salt`, `code`, `initial_actors`) and config change (`0x03`: one signed batch) from EIP-8430's reserved range. Entries apply before `calls`, and `sender_auth` is checked against the resulting state.
 - **Policy gate and value rules.** A gated sender's calls to anything but its manager fail as an execution result (`ActorPolicyViolation`), not a validity error. Gated actors and accounts running canonical account bytecode must carry zero `call.value`.
 - **Intrinsic gas.** Canonical authenticators cost their enshrined constant; others pay metered `STATICCALL` gas plus one `actor_config` read. Create entries add 32,000 plus 200 per byte and 22,100 per initial actor slot. PR [#12320](https://github.com/ethereum/EIPs/pull/12320) (Sep 16) applied the EIP-7623 calldata floor, which EIP-8430 now carries.
-- **Transaction Context.** Adds `getTransactionSender()`, `getTransactionCalls()`, and `getTransactionGasLimit()` beside EIP-8430's `getTransactionPayer()`, readable during authentication so a payer authenticator can decide sponsorship onchain.
+- **Transaction Context.** Adds `getTransactionSender()`, `getTransactionCalls()`, and `getTransactionGasLimit()` beside EIP-8430's `getTransactionPayer()`, readable during authentication so a payer authenticator can decide sponsorship onchain. The merged EIP-8430 text instead says EIP-8130 adds `getTransactionSender()` and `getTransactionSenderActorId()`; the two documents disagree as of November 23.
+- **Authentication bytes.** Merged EIP-8430 requires extensions that accept other authenticators to meter their authentication data: `sender_auth` bytes in `tx_payload_cost` and `payer_auth` bytes at 10 gas per token. EIP-8130's integration text still describes a `payer_data_cost` plus calldata floor written before that change.
 - **RPC.** `eth_estimateGas` and `eth_call` accept `senderActorId`/`payerActorId` or dummy auth blobs to simulate a specific actor.
 - **Empty-Keystore equivalence.** For an account with no Keystore state, validity, execution, and gas are identical with or without the integration.
 
-### EIP-8430 at a glance
+### EIP-8430 itself
 
-```
-AA_TX_TYPE || rlp([
-  chain_id, sender, nonce_key, nonce_sequence,
-  valid_after, valid_before,
-  max_priority_fee_per_gas, max_fee_per_gas, gas_limit,
-  account_changes, calls, metadata,
-  payer, sender_auth, payer_auth
-])
-call = rlp([to, value, data])
-```
-
-The open draft keeps the 15-field layout but changes several behaviors relative to the August EIP-8130 text: calls now carry native `value`; `payer = 0x00` selects an **open payer** recovered from `payer_auth`; `nonce_key 0` is the ordinary account nonce shared with other transaction types; receipts commit a `committed_phases` count; and no account is auto-delegated. Validity timestamps accept seconds or milliseconds by magnitude against `TIMESTAMP_MS_THRESHOLD = 10^11`, a rule PR #12204 introduced. Nonce-free transactions must have a `valid_before` within `NONCE_FREE_EXPIRY_WINDOW` and are deduplicated through the `replay_id` ring buffer.
+The transaction this integration targets is covered on its own page: [EIP-8430 Spec](/eip-8430) describes the wire format, open and bound payers, nonce lanes and nonce-free mode, native call value, phases and receipts, delegation, and gas, all of which work without the Keystore.
 
 ---
 
@@ -207,7 +189,7 @@ A node may give a payer a higher pending-transaction limit when its balance can 
 | `UNLOCK_INITIATED` | `0x04` |
 | `UNSEQUENCED` | `2^32 - 1` |
 
-Transaction constants (`AA_TX_TYPE`, `AA_PAYER_TYPE`, `NONCE_MANAGER_ADDRESS`, `TX_CONTEXT_ADDRESS`, `NONCE_KEY_MAX`, `K1_AUTH_COST`, `MAX_AUTHENTICATION_GAS`, `TIMESTAMP_MS_THRESHOLD`) now live in EIP-8430.
+Transaction constants (`AA_TX_TYPE`, `AA_PAYER_TYPE`, `NONCE_MANAGER_ADDRESS`, `TX_CONTEXT_ADDRESS`, `NONCE_KEY_MAX`, `K1_AUTH_COST`, `MAX_AUTHENTICATION_GAS`, `TIMESTAMP_MS_THRESHOLD`) now live in [EIP-8430](/eip-8430#transaction-format).
 
 ---
 
@@ -215,7 +197,7 @@ Transaction constants (`AA_TX_TYPE`, `AA_PAYER_TYPE`, `NONCE_MANAGER_ADDRESS`, `
 
 | Proposal | Relation | Description |
 |---|---|---|
-| [EIP-8430](https://github.com/ethereum/EIPs/pull/12385) | Companion, open PR | AA Transaction Type split out of EIP-8130; works for plain EOAs and exposes the extension points EIP-8130 fills |
+| [EIP-8430](/eip-8430) | Sibling standard, merged Draft (Nov 23, 2026) | AA Transaction Type split out of EIP-8130; works for plain EOAs and exposes the extension points EIP-8130 fills |
 | [EIP-8386](https://github.com/ethereum/EIPs/pull/12218) | Extension, open PR | Transaction Events View: read-only views over logs emitted so far, for in-phase outcome assertions |
 | [EIP-8387](https://github.com/ethereum/EIPs/pull/12221) | Extension, open PR (`requires: 8130`) | Stateless Accounts: transaction-scoped accounts with no Keystore write |
 | [EIP-8388](https://github.com/ethereum/EIPs/pull/12222) | Extension, open PR (`requires: 8130`) | Keystore Signatures for Execution Txs: EIP-1559 and EIP-2930 transactions authenticated through the Keystore |

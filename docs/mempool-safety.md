@@ -4,7 +4,7 @@
 
 ## TL;DR
 
-EIP-8130 does not execute the **account's** bytecode to decide whether an action is authorized. It selects a declared authenticator, then either runs native `ecrecover` for `K1_AUTHENTICATOR` or calls the authenticator contract through `STATICCALL`. Since October the transaction-level mempool rules live in the open EIP-8430 draft, while EIP-8130 states what a node adds when it integrates the Keystore.
+EIP-8130 does not execute the **account's** bytecode to decide whether an action is authorized. It selects a declared authenticator, then either runs native `ecrecover` for `K1_AUTHENTICATOR` or calls the authenticator contract through `STATICCALL`. Since October the transaction-level mempool rules live in sibling standard EIP-8430 (merged November 23), while EIP-8130 states what a node adds when it integrates the Keystore.
 
 That is still narrower than "no EVM during validation." `STATICCALL` prevents writes, but an authenticator can execute EVM code, read storage, and make further static calls. The merged text now draws the line explicitly: canonical authenticators are enshrined at constant cost and are pure functions of the signature and actor configuration, while a chain with a **permissive** acceptance policy also admits gas-capped contract authenticators and must track whatever state they read.
 

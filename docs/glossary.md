@@ -1,6 +1,6 @@
 # Glossary
 
-A comprehensive index of jargon used across this site: EIP-8130 ("Keystore Accounts") itself, its companion EIP-8430 and extension drafts, the account/actor/authenticator model it defines, and the terminology of the alternative and complementary proposals it is compared against (EIP-8141, EIP-8175, EIP-8202, EIP-8223, EIP-8224, EIP-XXXX). Entries are grouped by category and alphabetical within each group.
+A comprehensive index of jargon used across this site: the sibling standards EIP-8130 ("Keystore Accounts") and EIP-8430 ("AA Transaction Type"), their extension drafts, the account/actor/authenticator model it defines, and the terminology of the alternative and complementary proposals it is compared against (EIP-8141, EIP-8175, EIP-8202, EIP-8223, EIP-8224, EIP-XXXX). Entries are grouped by category and alphabetical within each group.
 
 ---
 
@@ -12,9 +12,12 @@ A comprehensive index of jargon used across this site: EIP-8130 ("Keystore Accou
 - **Authentication** — The step of resolving a signature or credential to an `actorId`, performed by an authenticator contract's `authenticate()` call or, for `K1_AUTHENTICATOR`, a native `ecrecover`. Deliberately separated from authorization; see [/authenticator-model](/authenticator-model).
 - **Authorization** — The step of checking what an already-authenticated actor may do, governed by its `scope` bitmask and, if `POLICY` is set, its policy manager.
 - **Consumer** — Any system that authorizes actions against the Keystore: a native transaction type such as EIP-8430, an EIP-8141 frame account whose code calls it, an ERC-4337 account, or an application verifying signatures. Every consumer's authentication must be equivalent to `authenticateActor`.
+- **Empty-Keystore equivalence** — EIP-8130's guarantee that an account with no Keystore state sees identical validity, execution, and gas whether or not a chain integrates the Keystore with EIP-8430.
+- **Extension points (EIP-8430)** — The hooks EIP-8430 leaves for richer account models: the authenticator selector in `sender_auth`/`payer_auth`, the authorization-rules hook, reserved account-change types, and extra Transaction Context getters. EIP-8130 fills all of them.
 - **Mempool Validation Algorithm** — The staged checks a node runs before accepting an EIP-8430 transaction, which the EIP-8130 integration extends with Keystore resolution, ordered account-change simulation, authenticator acceptance, and scope checks. See [/current-spec](/current-spec).
 - **No Wallet Code Execution** — EIP-8130's core mempool-safety claim: a node accepts a transaction by checking authenticator *identity* (the canonical set, or on permissive chains any authenticator bounded by `MAX_AUTHENTICATION_GAS`) rather than simulating the sender's own arbitrary account bytecode. See [/mempool-safety](/mempool-safety) for the argument and its contrast with EIP-8141.
 - **Operational Authority** — The predicate governing ERC-1271 signing: admin or any scope carrying `OPERATOR`. Introduced in PR #11918 (Jul 13, 2026) as `admin || (SENDER && !POLICY)`, replacing a standalone SIGNER bit; PR #12333 (Sep 14) renamed SENDER to OPERATOR and let it override POLICY.
+- **Sibling standards** — This site's term for EIP-8130 and EIP-8430: split from one proposal on October 8, 2026, designed to compose, and deployable independently since neither requires the other. See [/overview](/overview).
 - **Statelessness / Witness Cost** — The state a stateless client must prove to validate a transaction. EIP-8130 narrows the code surface by canonical identity, but Keystore, nonce, payer, and authenticator state may all contribute. See [/mempool-safety](/mempool-safety) §5.
 - **STATICCALL** — The EVM call type used to invoke an authenticator's `authenticate()` function; it cannot write storage, emit events, or otherwise change chain state, keeping authentication read-only and auditable.
 - **Transport-neutral Keystore** — The framing PR #12386 (Oct 8, 2026) adopted: the Keystore defines authority once, independent of which transaction format carries an action, so EIP-8130 no longer defines a transaction type.
@@ -80,9 +83,9 @@ A comprehensive index of jargon used across this site: EIP-8130 ("Keystore Accou
 
 ---
 
-## 5. Transaction Format and Fields
+## 5. EIP-8430 Transaction Format and Fields
 
-- **AA_PAYER_TYPE** — The magic byte (`0x7A`) prefixing the payer's signature-hash preimage, used only for domain separation; not a registered EIP-2718 type. Renumbered from `0x7C` in PR #11903 (Jul 8, 2026); now defined by EIP-8430.
+- **AA_PAYER_TYPE** — The magic byte (`0x7A`) prefixing the payer's signature-hash preimage, used only for domain separation; not a registered EIP-2718 type. Renumbered from `0x7C` in PR #11903 (Jul 8, 2026); defined by EIP-8430. Base's client replaced it with a two-byte `0x7901` domain on November 10, 2026, diverging from the spec.
 - **AA_TX_TYPE** — The EIP-2718 transaction type `0x79`, renumbered from `0x7B` in PR #11903 to avoid a CIP-64 collision. Since PR #12386 (Oct 8, 2026) it is defined by EIP-8430, not EIP-8130.
 - **account_changes** — The transaction field carrying typed entries. EIP-8430 defines delegation (`0x01`); the EIP-8130 integration assigns create (`0x02`) and config change (`0x03`). Before the October split the types were create `0x00`, config change `0x01`, delegation `0x02`. Unified from two fields in PR #11367 (Mar 3, 2026).
 - **call phase** — One atomic group of calls within `calls`; if any call in a phase reverts, that phase's state is discarded and remaining phases are skipped, but earlier committed phases persist.
@@ -91,7 +94,7 @@ A comprehensive index of jargon used across this site: EIP-8130 ("Keystore Accou
 - **committed_phases** — EIP-8430's receipt field counting the phases that committed, so the receipts root records which phases took effect.
 - **metadata** — An opaque, signed transaction field for wallet attribution and annotation data, shipped in PR #11805 (Jun 15, 2026). Open ERC-8340 proposes deterministic CBOR records for attribution, memos, call scope, and offchain commitments.
 - **payer / payer_auth** — See Gas Sponsorship and Payer Model below.
-- **REPLAY_ID_TYPE** — The magic prefix (`0x7901`) domain-separating the `replay_id` hash used for nonce-free-mode deduplication.
+- **REPLAY_ID_TYPE** — The magic prefix (`0x7901`) domain-separating the `replay_id` hash used for nonce-free deduplication. Base's client uses `0x7902` instead since November 10, 2026, because it reassigned `0x7901` to the payer domain.
 - **sender / sender_auth** — `sender` is the sending account address (empty for an EOA signature, in which case it is recovered via ecrecover); `sender_auth` is the raw ECDSA signature or `authenticator || data` blob authenticating it. `sender` was renamed from `from` in PR #11526 (May 11, 2026).
 - **TIMESTAMP_MS_THRESHOLD** — `10^11`, the boundary below which `valid_after`/`valid_before` values are read as seconds and at or above which they are read as milliseconds. Added in PR #12204 (Aug 19, 2026); now in EIP-8430.
 - **valid_after / valid_before** — The transaction validity window as `uint64` Unix timestamps in seconds or milliseconds, normalized by magnitude. Nonce-free mode requires a finite `valid_before` within `NONCE_FREE_EXPIRY_WINDOW`.
@@ -112,12 +115,13 @@ A comprehensive index of jargon used across this site: EIP-8130 ("Keystore Accou
 
 ## 7. Gas Sponsorship and Payer Model
 
-- **AA_BASE_COST** — The fixed per-transaction intrinsic-gas overhead (15,000 gas). PR #11813 (Jun 17) called the schedule a reference; PR #12204 (Aug 19) made it a protocol constant under the L1 profile. Now defined in EIP-8430.
+- **AA_BASE_COST** — EIP-8430's fixed per-transaction intrinsic-gas overhead: 12,000 gas in the merged text (15,000 before a November 1 commit aligned the schedule with EIP-2780), covering one account access, one nonce write, and one balance write. A protocol constant under the L1 profile.
 - **Adoption profiles (L1 / L2)** — From PR #12204: the L1 profile fixes the gas schedule as protocol constants; the L2 profile lets a chain reprice it but not drop the formula's structure or the calldata floor. EIP-8430 keeps the gas-schedule profiles.
-- **Calldata floor** — The EIP-7623-style `max(standard, floor)` term over the serialized transaction and the payer's auth bytes, added in PR #12320 (Sep 16, 2026) because the transaction has no `data` field for EIP-7623 to floor.
-- **effective_gas_limit** — `gas_limit` plus the payer's reserved authentication gas, the bound on total gas a sponsored transaction may use.
+- **Calldata floor** — The EIP-7623-style `max(standard, floor)` term that PR #12320 (Sep 16, 2026) added because the transaction has no `data` field for EIP-7623 to floor. In merged EIP-8430 it applies to the sender's gas only, with nonce and account-change charges excluded from the floor base as in EIP-2780.
+- **effective_gas_limit** — `gas_limit + payer_auth_cost` in merged EIP-8430: the bound on total gas a sponsored transaction may use and the amount reserved against the block.
+- **first_call_cost / sender_access_cost** — Two EIP-8430 intrinsic-gas terms added with the EIP-2780 alignment: a cold account access for the first call's target, and a cold access for the sender's account when someone else pays.
 - **Gas metering isolation** — The design under which `payer_auth_cost` is metered outside `gas_limit` and charged separately to the payer, since the payer chooses their own authenticator unilaterally and it is excluded from both signature hashes; `sender_auth_cost` is included in `gas_limit` since both parties sign over it.
-- **K1_AUTH_COST** — EIP-8430's fixed 5,100-gas secp256k1 authentication cost (ecrecover plus one cold account-state read), charged before Keystore integration so estimates do not change when it activates.
+- **K1_AUTH_COST** — EIP-8430's fixed 5,100-gas secp256k1 authentication cost: ecrecover plus one cold read of the signer's authorization, charged even though native validation performs no such read so that a Keystore-style extension "need not reprice secp256k1 transactions."
 - **MAX_AUTHENTICATION_GAS** — Suggested 100,000 gas: the `STATICCALL` cap for non-canonical authenticators and the bound on payer authentication metered outside `gas_limit`. Added in PR #12204.
 - **Open payer** — EIP-8430's `payer = 0x00` mode: any secp256k1 key willing to pay signs the payer hash, which binds the resolved sender and full body, and the payer is recovered from `payer_auth`.
 - **payer** — The transaction field naming the gas payer: empty for self-pay, `0x00` for an open payer, or a 20-byte address.
@@ -179,10 +183,12 @@ A comprehensive index of jargon used across this site: EIP-8130 ("Keystore Accou
 - **EIP-1153** — Transient storage (`TSTORE`/`TLOAD`); EIP-8130's original `requires` dependency for its first Transaction Context design, dropped once a dedicated precompile replaced it (PR #11388, Mar 9, 2026).
 - **EIP-2542** — An unrelated, pre-existing EIP formally withdrawn on June 30, 2026 citing EIP-8141 as its superseder, the first EIP-8141-related formal supersession noted in this site's research.
 - **EIP-2718** — The typed-transaction envelope standard; EIP-8430's `AA_TX_TYPE` (formerly EIP-8130's) is registered under this scheme, as is every other transaction type covered on this site.
+- **EIP-2780** — "Resource-Based Intrinsic Transaction Gas"; merged EIP-8430 decomposes its gas schedule into the same primitives (account access, nonce write, balance write, first-call access) without depending on it.
 - **EIP-7623** — The calldata floor. PR #12320 (Sep 16, 2026) applied it to EIP-8130 transactions, which have no `data` field for it to floor; EIP-8430 now requires it.
 - **EIP-7702** — Set-code delegation for EOAs (`0xef0100` indicator). EIP-8430 requires it and keeps the indicator mandatory even where standalone 7702 transactions are disabled; EIP-8130 itself no longer lists it.
-- **EIP-8130** — "Keystore Accounts" (originally "Account Abstraction by Account Configuration"), this site's subject: since PR #12386 a transport-neutral Keystore that authorizes account actors through authenticator contracts. See [/current-spec](/current-spec).
-- **EIP-8141** — "Frame Transaction," EIP-8130's most direct competitor and, since August 27, Scheduled for Inclusion in Hegotá: a programmable native-AA transaction type built from purpose-labeled "frames." EIP-8130 now names its frame accounts as Keystore consumers. See [/eip-8141](/eip-8141).
+- **EIP-8038** — "State-Access Gas Cost Update"; where active, EIP-8430's `COLD_ACCOUNT_ACCESS` becomes 3,000 instead of EIP-2929's 2,600.
+- **EIP-8130** — "Keystore Accounts" (originally "Account Abstraction by Account Configuration"), one of this site's two subjects: since PR #12386 a transport-neutral Keystore that authorizes account actors through authenticator contracts, designed to pair with EIP-8430. See [/current-spec](/current-spec).
+- **EIP-8141** — "Frame Transaction," EIP-8130's most direct competitor and, since August 27, Scheduled for Inclusion in Hegotá (still the case after ACDE #249 on November 19): a programmable native-AA transaction type built from purpose-labeled "frames." EIP-8130 now names its frame accounts as Keystore consumers. See [/eip-8141](/eip-8141).
 - **EIP-8175** — "Composable Transaction," a flat, non-recursive alternative bundling typed `capabilities` with a separate `signatures` list and a programmable `fee_auth` prelude for sponsorship. See [/eip-8175](/eip-8175).
 - **EIP-8202** — "Scheme-Agile Transaction" (also "Schemed Transaction"), a single flat execution payload plus typed `authorizations`/`extensions` lists. Its current draft defines ordinary and Merkle-committed ephemeral secp256k1 schemes; earlier P-256 and Falcon text was removed before merge. See [/eip-8202](/eip-8202).
 - **EIP-8223** — "Contract Payer Transaction," a complementary, narrow-scope static gas-sponsorship mechanism gated by a canonical payer-registry predeploy at `address(0x13)`, no EVM execution. See [/eip-8223](/eip-8223).
@@ -193,7 +199,7 @@ A comprehensive index of jargon used across this site: EIP-8130 ("Keystore Accou
 - **EIP-8388** — "Keystore Signatures for Execution Txs" (open PR #12222, `requires: 8130`): EIP-1559 and EIP-2930 transactions authenticated through the Keystore.
 - **EIP-8397** — "Frame Authenticator Signatures" (merged Oct 14, 2026, PR #12244, leekt): an EIP-8141 `AUTHENTICATOR` scheme with permissionless, pure, fixed-gas authenticators returning a `key_id`.
 - **EIP-8398 / EIP-8401 / EIP-8402** — Numbers assigned to pedrouid's closed PR #12248, which proposed separate transaction, Keystore, and advanced-controls EIPs.
-- **EIP-8430** — "AA Transaction Type" (open PR #12385): the `0x79` transaction split out of EIP-8130 on October 8, usable by plain EOAs with secp256k1 and extended by EIP-8130's Keystore integration.
+- **EIP-8430** — "AA Transaction Type" (merged as a Draft on November 23, 2026 via PR #12385), EIP-8130's sibling standard: the `0x79` transaction split out of EIP-8130 on October 8, usable by plain EOAs with secp256k1 and extended by EIP-8130's Keystore integration. See [/eip-8430](/eip-8430).
 - **EIP-XXXX (Tempo-like Transactions)** — A pre-draft gist (no EIP number, no PR) by Georgios Konstantopoulos bundling a fixed set of wallet UX primitives (batching, validity windows, sponsorship, 2D nonces, passkeys) with no programmable validation and no opcodes. See [/eip-xxxx](/eip-xxxx).
 - **Expired Actor Pruning (draft)** — An unnumbered open draft (PR #12240) for consensus-driven garbage collection of expired Keystore actors.
 
@@ -275,14 +281,16 @@ A comprehensive index of jargon used across this site: EIP-8130 ("Keystore Accou
 ## 18. Governance and Process Terms
 
 - **Base Cobalt** — The Base upgrade that went live on Sepolia (Sep 23, 2026) and mainnet (Sep 30) without EIP-8130, after Base moved the activation out on September 8.
-- **Base Everest** — The Base upgrade that plans "Base Transactions (EIP-8430)" with no date. Base's client gives it no Keystore support.
+- **Base Everest** — The Base upgrade that plans "Base Transactions (EIP-8430)." As of November 23, 2026 it has no timestamp on any Base network.
 - **Base reference implementation** — Base's canonical `base/eip-8130` contracts and tests, authoritative for Keystore internals since PR #12135; last merged September 2, 2026.
+- **Base Transactions** — Base's name for its EIP-8430 implementation since base/base PR #6642 (Nov 17, 2026), which renamed the client's EIP-8130 code; the transaction type stays `0x79`.
 - **Base Vibenet** — Base's ephemeral developer network (`vibes.base.org`, now redirecting to Base's Vibenet page) for testing in-flight features, including the Keystore.
-- **Base Zenith** — Base's permanently unscheduled, genesis-only testing fork. Base PR #5366 (Sep 29, 2026) gated the Keystore to it, so the Keystore runs only on devnets such as Vibenet.
+- **Base Zenith** — Base's permanently unscheduled, genesis-only testing fork. Base PR #5366 (Sep 29, 2026) gated the Keystore to it; PR #6635 (Nov 17) then deleted the Keystore, so Zenith no longer enables it.
 - **Celo CIP-64** — An existing production account-abstraction system on Celo whose migration onto EIP-8130 was discussed at length on the EthMagicians thread (posts #12-23), ultimately forcing the `AA_TX_TYPE`/`AA_PAYER_TYPE` renumbering to avoid an OP Stack transaction-type collision. See [/cross-chain-accounts](/cross-chain-accounts) and [/developer-tooling](/developer-tooling).
-- **Draft (EIP status)** — EIP-8130's formal status as of October 21, 2026. EIP-8430 has no merged text yet.
+- **Draft (EIP status)** — The formal status of both EIP-8130 and EIP-8430 as of November 23, 2026; merged Drafts can still change.
 - **EthMagicians thread** — The community discussion forum thread for EIP-8130 (ethereum-magicians.org/t/eip-8130-account-abstraction-by-account-configurations/25952), the primary venue for design debate outside the PR review process.
-- **Frame Transaction breakouts** — The AA breakout call series run after ACDE #244. Breakout #2 (Aug 25, 2026) debated EIP-8130 directly; the series targets an AA decision by Devcon (Nov 3).
-- **Hegotá (hard fork)** — The Ethereum hard fork for which EIP-8141 was Considered for Inclusion (PR #11537, Apr 30, 2026) and then Scheduled for Inclusion (PR #12251, Aug 27). EIP-8130 has never been listed.
+- **Frame Transaction breakouts** — The AA breakout call series run after ACDE #244. Breakout #2 (Aug 25, 2026) debated EIP-8130 directly; breakout #8 (Nov 17) targeted locking the frame spec by year-end.
+- **Hegotá (hard fork)** — The Ethereum hard fork for which EIP-8141 was Considered for Inclusion (PR #11537, Apr 30, 2026) and then Scheduled for Inclusion (PR #12251, Aug 27). Its execution-layer scope was reopened in November: ACDE #249 (Nov 19) compared five options, from enshrined PQ signatures without frames to a normal scope. Neither EIP-8130 nor EIP-8430 has been listed.
+- **pqai27** — Ethlabs' November 2026 framing of post-quantum and post-AI timelines that reopened Hegotá scope; its proposal keeps frames, not EIP-8130 or EIP-8430, on the critical path.
 - **SFI (Scheduled for Inclusion)** — The fork-planning status above Considered for Inclusion. EIP-8141's SFI text says the specific AA implementation "may change, including EIP number."
 - **Significant PR** — This site's own classification for a merged PR meeting size or scope thresholds (large diff, cross-cutting spec changes, opcode/constant changes) warranting a full why/what/why-it-matters treatment in [/merged-changes](/merged-changes) rather than a one-line entry.

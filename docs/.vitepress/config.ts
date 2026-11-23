@@ -1,15 +1,15 @@
 import { defineConfig } from "vitepress";
 
 const SITE_URL = "https://eip8130.io";
-const SITE_NAME = "EIP-8130 Keystore Accounts";
+const SITE_NAME = "EIP-8130 & EIP-8430";
 const SITE_DESCRIPTION =
-  "Native account abstraction for Ethereum without executing wallet code during validation. Declarative authenticator contracts, portable cross-chain accounts, and predictable mempool safety. Research, analysis, and implementation tracking for EIP-8130 Keystore Accounts.";
+  "Native account abstraction for Ethereum without executing wallet code during validation. Research, analysis, and implementation tracking for two sibling standards: EIP-8130 Keystore Accounts and the EIP-8430 AA Transaction Type, how they complement each other, and how each works on its own.";
 const OG_IMAGE = `${SITE_URL}/og-image.png`;
 const TWITTER_IMAGE = `${SITE_URL}/twitter-card.png`;
 
 export default defineConfig({
   title: SITE_NAME,
-  titleTemplate: ":title | EIP-8130",
+  titleTemplate: ":title | EIP-8130 & EIP-8430",
   description: SITE_DESCRIPTION,
   lang: "en-US",
   cleanUrls: true,
@@ -105,7 +105,9 @@ export default defineConfig({
       {
         text: "Spec",
         items: [
-          { text: "Current Spec", link: "/current-spec" },
+          { text: "Overview: 8130 + 8430", link: "/overview" },
+          { text: "EIP-8130 Spec", link: "/current-spec" },
+          { text: "EIP-8430 Spec", link: "/eip-8430" },
           { text: "Feedback Evolution", link: "/feedback-evolution" },
           { text: "Original Spec", link: "/original-spec" },
           { text: "Merged Changes", link: "/merged-changes" },
@@ -130,7 +132,9 @@ export default defineConfig({
       {
         text: "Spec",
         items: [
-          { text: "Current Spec", link: "/current-spec" },
+          { text: "Overview: 8130 + 8430", link: "/overview" },
+          { text: "EIP-8130 Spec", link: "/current-spec" },
+          { text: "EIP-8430 Spec", link: "/eip-8430" },
           { text: "Feedback Evolution", link: "/feedback-evolution" },
           { text: "Original Spec", link: "/original-spec" },
           { text: "Merged Changes", link: "/merged-changes" },
